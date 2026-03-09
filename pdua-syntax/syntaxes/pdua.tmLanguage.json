@@ -1,0 +1,54 @@
+{
+  "scopeName": "source.pdua",
+  "name": "PDUA",
+  "patterns": [
+    {
+      "name": "markup.heading.pdua",
+      "match": "^\\s*#.*$"
+    },
+    {
+      "name": "comment.line.at-sign.pdua",
+      "match": "@.*$"
+    },
+    {
+      "name": "entity.name.label.pdua",
+      "match": "^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*:"
+    },
+    {
+      "name": "keyword.instruction.basic.pdua",
+      "match": "\\b(MOV|ADD|SUB|INV|AND|JMP|JZ|JN|JC|CALL|RET|NOP|CMP)\\b"
+    },
+    {
+      "name": "keyword.instruction.extended.pdua",
+      "match": "\\b(XOR|SLL|SLR)\\b"
+    },
+    {
+      "name": "variable.language.constant.cte.pdua",
+      "match": "\\bCTE\\b"
+    },
+    {
+      "name": "variable.pointer.dptr.pdua",
+      "match": "\\[DPTR\\]"
+    },
+    {
+      "name": "variable.register.general.pdua",
+      "match": "\\b(ACC|A|DPTR|DIR)\\b"
+    },
+    {
+      "name": "variable.symbol.pdua",
+      "match": "\\b(var[A-Za-z_][A-Za-z0-9_]*)\\b"
+    },
+    {
+      "name": "constant.numeric.hex.pdua",
+      "match": "\\b0x[0-9A-Fa-f]+\\b"
+    },
+    {
+      "name": "constant.numeric.decimal.pdua",
+      "match": "\\b\\d+\\b"
+    },
+    {
+      "name": "punctuation.separator.comma.pdua",
+      "match": ","
+    }
+  ]
+}

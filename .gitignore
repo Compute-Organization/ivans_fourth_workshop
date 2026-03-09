@@ -1,41 +1,131 @@
-# Prerequisites
+# =========================
+# Build directories
+# =========================
+build/
+cmake-build-*/
+out/
+
+# =========================
+# CMake / Ninja files
+# =========================
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+Makefile
+build.ninja
+.ninja_deps
+.ninja_log
+
+# =========================
+# Prerequisites / deps
+# =========================
 *.d
 
-# Compiled Object files
-*.slo
-*.lo
+# =========================
+# Compiled object files
+# =========================
 *.o
 *.obj
+*.lo
+*.slo
 
-# Precompiled Headers
+# =========================
+# Precompiled headers
+# =========================
 *.gch
 *.pch
 
-# Linker files
-*.ilk
+# =========================
+# Static libraries
+# =========================
+*.a
+*.lib
+*.la
+*.lai
 
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
+# =========================
+# Shared libraries
+# =========================
 *.so
+*.so.*
 *.dylib
 *.dll
 
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
+# =========================
+# Executables / apps
+# =========================
 *.exe
 *.out
 *.app
 
-# debug information files
+# =========================
+# Debug / symbol files
+# =========================
+*.pdb
+*.ilk
 *.dwo
+*.dSYM/
+
+# =========================
+# Fortran modules
+# =========================
+*.mod
+*.smod
+
+# =========================
+# Binary / generated program outputs
+# =========================
+*.bin
+*.hex
+*.lst
+*.sym
+
+# =========================
+# Generated workshop / simulator outputs
+# =========================
+*.elf
+*.map
+
+# =========================
+# Logs / temp files
+# =========================
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# =========================
+# VS Code
+# =========================
+.vscode/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Python cache (if used in tooling)
+# =========================
+__pycache__/
+*.pyc
+
+# =========================
+# Node / VS Code extension packaging
+# =========================
+node_modules/
+*.vsix
+
+# =========================
+# Coverage / test artifacts
+# =========================
+coverage/
+*.gcda
+*.gcno
+*.gcov

@@ -1,0 +1,35 @@
+{
+  "name": "pdua-language",
+  "displayName": "PDUA Assembly",
+  "description": "Syntax highlighting for PDUA assembly language",
+  "version": "0.0.1",
+  "publisher": "ivan",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "pdua",
+        "aliases": [
+          "PDUA",
+          "pdua"
+        ],
+        "extensions": [
+          ".pdua"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pdua",
+        "scopeName": "source.pdua",
+        "path": "./syntaxes/pdua.tmLanguage.json"
+      }
+    ]
+  }
+}
