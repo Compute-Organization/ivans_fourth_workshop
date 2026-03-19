@@ -1,14 +1,15 @@
 #include "c_programs.h"
 #include <stdio.h>
 
+
+
 int main(void) {
 
-    // Compute bitwise add function:
-    printf("The bitwise add of %d and %d is: %d\n", 3, 2, bitwiseadd(3,2));
+    // 1. Integers multiplication without sign:
+    multiplication_without_sign(0x0B, 0x0D);
 
-    // Compute the fibbonacci terms:
-    int fib[50];
-    fibonacci(20, fib);
+    // 2. Two complement multiplication:
+    multiplication_with_sign(0x0B, 0x0D);
 
     // End:
     return 0;
