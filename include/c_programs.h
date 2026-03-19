@@ -11,3 +11,6 @@ void print_bin(uint8_t num);
 
 // Multiplication of integers without sign algorithm:
 void multiplication_without_sign(unsigned char M, unsigned char Q);
+
+// Booth multiplication for 4-bit signed numbers:
+int multiplication_with_sign(unsigned char M, unsigned char Q);

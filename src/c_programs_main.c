@@ -1,7 +1,4 @@
 #include "c_programs.h"
-#include <stdio.h>
-
-
 
 int main(void) {
 
@@ -9,7 +6,7 @@ int main(void) {
     multiplication_without_sign(0x0B, 0x0D);
 
     // 2. Two complement multiplication:
-    multiplication_with_sign(0x0B, 0x0D);
+    multiplication_with_sign(0x0D, 0x05);
 
     // End:
     return 0;
