@@ -14,3 +14,6 @@ void multiplication_without_sign(unsigned char M, unsigned char Q);
 
 // Booth multiplication for 4-bit signed numbers:
 int multiplication_with_sign(unsigned char M, unsigned char Q);
+
+// Power using repeated Booth multiplications:
+int power_with_sign(unsigned char base, unsigned char exponent);

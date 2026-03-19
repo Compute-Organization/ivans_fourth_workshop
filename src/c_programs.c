@@ -49,6 +49,11 @@ int sign_extend_4(unsigned char x) {
     return (int)x;
 }
 
+/* Convert a signed int in range [-8, 7] to 4-bit two's complement */
+unsigned char int_to_4bit(int x) {
+    return (unsigned char)(x & 0x0F);
+}
+
 void multiplication_without_sign(unsigned char M, unsigned char Q) {
     
     // 1. First we define the initial conditions:
@@ -174,3 +179,41 @@ int multiplication_with_sign(unsigned char M, unsigned char Q) {
 
     return decimal_result;
 }
+
+/* Power using repeated Booth multiplications */
+int power_with_sign(unsigned char base, unsigned char exponent) {
+    int exp = (int)(exponent & 0x0F);   /* Treat exponent as unsigned small value */
+    int result = 1;
+    int base_signed = sign_extend_4(base);
+
+    printf("Power operation:\n");
+    printf("Base     = "); print_bin4(base); printf(" (%d)\n", base_signed);
+    printf("Exponent = %d\n\n", exp);
+
+    if (exp == 0) {
+        printf("Any nonzero number to the power 0 is 1.\n");
+        return 1;
+    }
+
+    for (int i = 0; i < exp; ++i) {
+        /* To reuse the 4-bit Booth multiplier, both operands must fit in 4 bits */
+        if (result < -8 || result > 7) {
+            printf("Error: intermediate result %d does not fit in 4-bit signed range [-8, 7].\n", result);
+            return 0;
+        }
+
+        int operand_a = result;
+        int operand_b = base_signed;
+
+        printf("Iteration %d:\n", i + 1);
+        printf("Current result = %d\n", result);
+        printf("We compute     = %d * %d\n", operand_a, operand_b);
+
+        result = multiplication_with_sign(int_to_4bit(operand_a), int_to_4bit(operand_b));
+
+        printf("New result     = %d\n\n", result);
+    }
+
+    return result;
+}
+

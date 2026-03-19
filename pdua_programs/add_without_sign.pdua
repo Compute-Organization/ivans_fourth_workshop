@@ -1,0 +1,314 @@
+# Unsigned Multiplication Operation Using Shift and Add.
+
+while_start:            @ Loop until count becomes zero.
+    
+    ldCount_condition:  @ Bring the value of count through the auxiliary.
+        MOV ACC, CTE    @ Load address of variable Count in the accumulator.
+        varCount        @ Address of variable Count.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ Load the value from Count address to the accumulator.
+        MOV A, ACC      @ A <- ACC.
+
+    check_end:          @ End the loop through the condition specified.
+        JZ CTE          @ If count == 0, exit the loop.
+        end_program     @ Jump to the ending program scope.
+
+    clearC:             @ Clear carry before evaluating the current iteration.
+        MOV ACC, CTE    @ Load immediate zero into ACC.
+        0x00            @ Constant value 0.
+        MOV A, ACC      @ A <- 0.
+        MOV ACC, CTE    @ Load address of variable C in the accumulator.
+        varC            @ Address of variable C.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- 0.
+        MOV [DPTR], ACC @ Store 0 in varC.
+
+    ldQ_condition:      @ Bring the value of Q through the auxiliary.
+        MOV ACC, CTE    @ Load address of variable Q in the accumulator.
+        varQ            @ Address of variable Q.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ Load the value from Q address to the accumulator.
+        MOV A, ACC      @ A <- Q.
+
+    ldMask1_condition:  @ Load mask 0x01 into ACC.
+        MOV ACC, CTE    @ Load address of variable Mask1 in the accumulator.
+        varMask1        @ Address of variable Mask1.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 0x01.
+
+    andQ0:              @ Compute Q & 0x01 to inspect Q0.
+        AND ACC, A      @ ACC <- Q & 0x01.
+
+    check_add:          @ If Q0 == 0, skip the addition stage.
+        JZ CTE          @ If Q0 == 0, jump to shift stage.
+        shift_stage     @ Jump target for skipping add.
+
+    ldM_add:            @ Bring the value of M through the auxiliary.
+        MOV ACC, CTE    @ Load address of variable M in the accumulator.
+        varM            @ Address of variable M.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ Load M into ACC.
+        MOV A, ACC      @ A <- M.
+
+    ldA_add:            @ Reload A register value into ACC.
+        MOV ACC, CTE    @ Load address of variable A in the accumulator.
+        varA            @ Address of variable A.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- current A.
+
+    addAM:              @ Compute A + M.
+        ADD ACC, A      @ ACC <- A + M.
+        MOV A, ACC      @ Save the raw sum into auxiliary.
+
+    storeSUM:           @ Store raw sum in varSUM.
+        MOV ACC, CTE    @ Load address of variable SUM in the accumulator.
+        varSUM          @ Address of variable SUM.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- raw sum.
+        MOV [DPTR], ACC @ Store raw sum.
+
+    ldSUM_low:          @ Bring raw sum through the auxiliary.
+        MOV ACC, CTE    @ Load address of variable SUM in the accumulator.
+        varSUM          @ Address of variable SUM.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- raw sum.
+        MOV A, ACC      @ A <- raw sum.
+
+    ldMask4_low:        @ Load mask 0x0F into ACC.
+        MOV ACC, CTE    @ Load address of variable Mask4 in the accumulator.
+        varMask4        @ Address of variable Mask4.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 0x0F.
+
+    maskSUM_low:        @ Keep only the low 4 bits of the sum.
+        AND ACC, A      @ ACC <- SUM & 0x0F.
+        MOV A, ACC      @ A <- low nibble.
+
+    storeA_after_add:   @ Store updated A.
+        MOV ACC, CTE    @ Load address of variable A in the accumulator.
+        varA            @ Address of variable A.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- low nibble of SUM.
+        MOV [DPTR], ACC @ Store updated A.
+
+    ldShift4_carry:     @ Load shift amount 4 into A.
+        MOV ACC, CTE    @ Load address of variable Shift4 in the accumulator.
+        varShift4       @ Address of variable Shift4.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 4.
+        MOV A, ACC      @ A <- 4.
+
+    ldSUM_carry:        @ Reload raw sum into ACC.
+        MOV ACC, CTE    @ Load address of variable SUM in the accumulator.
+        varSUM          @ Address of variable SUM.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- raw sum.
+
+    rshSUM4:            @ Shift sum right 4 positions to isolate carry bit.
+        SRL ACC, A      @ ACC <- SUM >> 4.
+        MOV A, ACC      @ A <- shifted SUM.
+
+    ldMask1_carry:      @ Load mask 0x01 into ACC.
+        MOV ACC, CTE    @ Load address of variable Mask1 in the accumulator.
+        varMask1        @ Address of variable Mask1.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 0x01.
+
+    maskCarry:          @ Keep only the carry bit.
+        AND ACC, A      @ ACC <- (SUM >> 4) & 0x01.
+        MOV A, ACC      @ A <- carry.
+
+    storeCarry:         @ Store carry in varC.
+        MOV ACC, CTE    @ Load address of variable C in the accumulator.
+        varC            @ Address of variable C.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- carry.
+        MOV [DPTR], ACC @ Store carry in varC.
+
+shift_stage:            @ Shift right the combined registers C, A and Q.
+
+    ldA_oldA0:          @ Bring the value of A through the auxiliary.
+        MOV ACC, CTE    @ Load address of variable A in the accumulator.
+        varA            @ Address of variable A.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- A.
+        MOV A, ACC      @ A <- A.
+
+    ldMask1_oldA0:      @ Load mask 0x01 into ACC.
+        MOV ACC, CTE    @ Load address of variable Mask1 in the accumulator.
+        varMask1        @ Address of variable Mask1.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 0x01.
+
+    andA0:              @ Compute A & 0x01.
+        AND ACC, A      @ ACC <- A & 0x01.
+        MOV A, ACC      @ A <- old A0.
+
+    storeOldA0:         @ Store old A0 in varOldA0.
+        MOV ACC, CTE    @ Load address of variable OldA0 in the accumulator.
+        varOldA0        @ Address of variable OldA0.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- old A0.
+        MOV [DPTR], ACC @ Store old A0.
+
+    ldShift1_Q:         @ Load shift amount 1 into A.
+        MOV ACC, CTE    @ Load address of variable Shift1 in the accumulator.
+        varShift1       @ Address of variable Shift1.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 1.
+        MOV A, ACC      @ A <- 1.
+
+    ldQ_shift:          @ Reload Q into ACC.
+        MOV ACC, CTE    @ Load address of variable Q in the accumulator.
+        varQ            @ Address of variable Q.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- Q.
+
+    rshQ:               @ Compute Q >> 1.
+        SRL ACC, A      @ ACC <- Q >> 1.
+        MOV A, ACC      @ A <- shifted Q.
+
+    storeTMP_Q:         @ Store partial Q in varTMP.
+        MOV ACC, CTE    @ Load address of variable TMP in the accumulator.
+        varTMP          @ Address of variable TMP.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- shifted Q.
+        MOV [DPTR], ACC @ Store partial Q.
+
+    ldShift3_A0:        @ Load shift amount 3 into A.
+        MOV ACC, CTE    @ Load address of variable Shift3 in the accumulator.
+        varShift3       @ Address of variable Shift3.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 3.
+        MOV A, ACC      @ A <- 3.
+
+    ldOldA0_shift:      @ Reload old A0 into ACC.
+        MOV ACC, CTE    @ Load address of variable OldA0 in the accumulator.
+        varOldA0        @ Address of variable OldA0.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- old A0.
+
+    lshOldA0:           @ Compute oldA0 << 3.
+        SLL ACC, A      @ ACC <- oldA0 << 3.
+        MOV A, ACC      @ A <- shifted oldA0.
+
+    ldTMP_Q_or:         @ Reload partial Q into ACC.
+        MOV ACC, CTE    @ Load address of variable TMP in the accumulator.
+        varTMP          @ Address of variable TMP.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- shifted Q.
+
+    orQ_new:            @ Compute new Q.
+        OR ACC, A       @ ACC <- (Q >> 1) | (oldA0 << 3).
+        MOV A, ACC      @ A <- new Q.
+
+    storeQ_new:         @ Store updated Q.
+        MOV ACC, CTE    @ Load address of variable Q in the accumulator.
+        varQ            @ Address of variable Q.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- new Q.
+        MOV [DPTR], ACC @ Store updated Q.
+
+    ldShift1_A:         @ Load shift amount 1 into A.
+        MOV ACC, CTE    @ Load address of variable Shift1 in the accumulator.
+        varShift1       @ Address of variable Shift1.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 1.
+        MOV A, ACC      @ A <- 1.
+
+    ldA_shift:          @ Reload A into ACC.
+        MOV ACC, CTE    @ Load address of variable A in the accumulator.
+        varA            @ Address of variable A.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- A.
+
+    rshA:               @ Compute A >> 1.
+        SRL ACC, A      @ ACC <- A >> 1.
+        MOV A, ACC      @ A <- shifted A.
+
+    storeTMP_A:         @ Store partial A in varTMP.
+        MOV ACC, CTE    @ Load address of variable TMP in the accumulator.
+        varTMP          @ Address of variable TMP.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- shifted A.
+        MOV [DPTR], ACC @ Store partial A.
+
+    ldShift3_C:         @ Load shift amount 3 into A.
+        MOV ACC, CTE    @ Load address of variable Shift3 in the accumulator.
+        varShift3       @ Address of variable Shift3.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 3.
+        MOV A, ACC      @ A <- 3.
+
+    ldC_shift:          @ Reload C into ACC.
+        MOV ACC, CTE    @ Load address of variable C in the accumulator.
+        varC            @ Address of variable C.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- C.
+
+    lshC:               @ Compute C << 3.
+        SLL ACC, A      @ ACC <- C << 3.
+        MOV A, ACC      @ A <- shifted C.
+
+    ldTMP_A_or:         @ Reload partial A into ACC.
+        MOV ACC, CTE    @ Load address of variable TMP in the accumulator.
+        varTMP          @ Address of variable TMP.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- shifted A.
+
+    orA_new:            @ Compute new A.
+        OR ACC, A       @ ACC <- (A >> 1) | (C << 3).
+        MOV A, ACC      @ A <- new A.
+
+    storeA_new:         @ Store updated A.
+        MOV ACC, CTE    @ Load address of variable A in the accumulator.
+        varA            @ Address of variable A.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- new A.
+        MOV [DPTR], ACC @ Store updated A.
+
+    ld1_dec:            @ Load constant 1 into auxiliary.
+        MOV ACC, CTE    @ Load address of variable One in the accumulator.
+        varOne          @ Address of variable One.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- 1.
+        MOV A, ACC      @ A <- 1.
+
+    ldCount_dec:        @ Reload count into ACC.
+        MOV ACC, CTE    @ Load address of variable Count in the accumulator.
+        varCount        @ Address of variable Count.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, [DPTR] @ ACC <- count.
+
+    decCount:           @ Compute count - 1.
+        SUB ACC, A      @ ACC <- count - 1.
+        MOV A, ACC      @ A <- updated count.
+
+    storeCount:         @ Store updated count.
+        MOV ACC, CTE    @ Load address of variable Count in the accumulator.
+        varCount        @ Address of variable Count.
+        MOV DPTR, ACC   @ Move the address to the data pointer.
+        MOV ACC, A      @ ACC <- updated count.
+        MOV [DPTR], ACC @ Store updated count.
+
+    continueL:          @ Unconditional jump back to the beginning of the loop.
+        JMP CTE         @ Jump to the loop start address.
+        while_start     @ Jump target operand for JMP CTE.
+
+end_program:            @ Program termination block.
+    RET                 @ Stop execution and return control to the simulator.
+
+varM: 0x00
+varQ: 0x00
+varA: 0x00
+varC: 0x00
+varCount: 0x04
+varSUM: 0x00
+varOldA0: 0x00
+varTMP: 0x00
+varMask1: 0x01
+varMask4: 0x0F
+varShift1: 0x01
+varShift3: 0x03
+varShift4: 0x04
+varOne: 0x01

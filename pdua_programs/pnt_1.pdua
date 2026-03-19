@@ -1,8 +1,4 @@
-;Addition Operation Using Bitwise Operators.
-
-varX: 0x02
-varY: 0x03
-varC: 0x00
+# Addition Operation Using Bitwise Operators.
 
 while_start:            @ Loop until Y value comes back to zero from X range of counting.
     
@@ -87,3 +83,6 @@ while_start:            @ Loop until Y value comes back to zero from X range of 
 end_program:            @ Program termination block.
     RET                 @ Stop execution and return control to the simulator.
 
+varX: 0x02
+varY: 0x03
+varC: 0x00
