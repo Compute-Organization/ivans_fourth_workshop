@@ -87,11 +87,11 @@ bool PDUASimulator::isKnownOpcode(std::uint8_t opcode) const noexcept
     case 0x68:
     case 0x70:
     case 0x78:
-    case 0x80: // XOR ACC, A
-    case 0x88: // SLL ACC, A
-    case 0x90: // SRL ACC, A
-    case 0x98: // OR ACC, A
-    case 0xA0: // SUB ACC, A
+    case 0x80:
+    case 0x88:
+    case 0x90:
+    case 0x98:
+    case 0xA0:
         return true;
     default:
         return false;

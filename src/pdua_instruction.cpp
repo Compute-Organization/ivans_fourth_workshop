@@ -204,7 +204,7 @@ const std::vector<PDUAInstruction>& basicInstructionSet()
         PDUAInstruction{std::byte{0x70}, std::byte{0xF8}, "CALL CTE",        2, false, OperandKind::Address8},
         PDUAInstruction{std::byte{0x78}, std::byte{0xF8}, "RET",             1, false, OperandKind::None},
 
-        // Instrucciones pedagógicas agregadas en el rango disponible 1xxxx---
+        // Extensiones nuevas
         PDUAInstruction{std::byte{0x80}, std::byte{0xF8}, "XOR ACC, A",      1, true,  OperandKind::None},
         PDUAInstruction{std::byte{0x88}, std::byte{0xF8}, "SLL ACC, A",      1, true,  OperandKind::None},
         PDUAInstruction{std::byte{0x90}, std::byte{0xF8}, "SRL ACC, A",      1, true,  OperandKind::None},
