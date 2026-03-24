@@ -43,22 +43,21 @@ private:
         const PDUAInstruction* instruction{nullptr};
         std::string operand_text{};
         std::uint8_t data_value{0};
-        std::uint8_t address{0};
     };
 
     [[nodiscard]] std::vector<ParsedLine> firstPass(const std::string& source,
-                                                    SymbolTable& symbols) const;
+            SymbolTable& symbols) const;
 
     [[nodiscard]] std::vector<std::uint8_t> secondPass(const std::vector<ParsedLine>& lines,
-                                                       const SymbolTable& symbols) const;
+            const SymbolTable& symbols) const;
 
     [[nodiscard]] static std::string stripComment(const std::string& line);
     [[nodiscard]] static std::string trim(const std::string& text);
     [[nodiscard]] static std::string extractOperandToken(const std::string& text);
 
     [[nodiscard]] static std::uint8_t parseByteValue(const std::string& text,
-                                                     const SymbolTable& symbols,
-                                                     std::size_t line_number);
+            const SymbolTable& symbols,
+            std::size_t line_number);
 
     [[nodiscard]] static bool isDataDefinition(const std::string& text);
     [[nodiscard]] static const PDUAInstruction* findInstruction(const std::string& normalized_line);

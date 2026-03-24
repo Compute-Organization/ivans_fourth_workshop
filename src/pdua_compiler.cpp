@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_set>
 #include <vector>
 
 std::string PDUACompiler::trim(const std::string& text)
@@ -98,27 +99,15 @@ std::string PDUACompiler::stripComment(const std::string& line)
 {
     std::size_t cut_pos = std::string::npos;
 
-    const auto hash_pos = line.find('#');
-    const auto semicolon_pos = line.find(';');
-    const auto at_pos = line.find('@');
-
-    if (hash_pos != std::string::npos)
+    for (const char marker : {
+                '#', ';', '@'
+            })
     {
-        cut_pos = hash_pos;
-    }
-
-    if (semicolon_pos != std::string::npos)
-    {
-        cut_pos = (cut_pos == std::string::npos)
-                    ? semicolon_pos
-                    : std::min(cut_pos, semicolon_pos);
-    }
-
-    if (at_pos != std::string::npos)
-    {
-        cut_pos = (cut_pos == std::string::npos)
-                    ? at_pos
-                    : std::min(cut_pos, at_pos);
+        const auto pos = line.find(marker);
+        if (pos != std::string::npos)
+        {
+            cut_pos = (cut_pos == std::string::npos) ? pos : std::min(cut_pos, pos);
+        }
     }
 
     if (cut_pos == std::string::npos)
@@ -146,8 +135,8 @@ std::string PDUACompiler::extractOperandToken(const std::string& text)
 }
 
 std::uint8_t PDUACompiler::parseByteValue(const std::string& text,
-                                          const SymbolTable& symbols,
-                                          std::size_t line_number)
+        const SymbolTable& symbols,
+        std::size_t line_number)
 {
     const std::string token = normalizeAssemblyText(extractOperandToken(text));
 
@@ -172,6 +161,11 @@ std::uint8_t PDUACompiler::parseByteValue(const std::string& text,
         if (token.size() > 2U && token[0] == '0' && token[1] == 'X')
         {
             value = std::stoul(token, &idx, 16);
+        }
+        else if (token.size() > 2U && token[0] == '0' && token[1] == 'B')
+        {
+            value = std::stoul(token.substr(2), &idx, 2);
+            idx += 2U;
         }
         else
         {
@@ -217,7 +211,7 @@ const PDUAInstruction* PDUACompiler::findInstruction(const std::string& normaliz
     for (const auto& instruction : instructions)
     {
         if (instruction.operandKind() == OperandKind::None &&
-            instruction.matchesNormalized(normalized_line))
+                instruction.matchesNormalized(normalized_line))
         {
             return &instruction;
         }
@@ -226,7 +220,7 @@ const PDUAInstruction* PDUACompiler::findInstruction(const std::string& normaliz
     for (const auto& instruction : instructions)
     {
         if (instruction.operandKind() != OperandKind::None &&
-            instruction.matchesNormalized(normalized_line))
+                instruction.matchesNormalized(normalized_line))
         {
             return &instruction;
         }
@@ -236,17 +230,35 @@ const PDUAInstruction* PDUACompiler::findInstruction(const std::string& normaliz
 }
 
 std::vector<PDUACompiler::ParsedLine> PDUACompiler::firstPass(const std::string& source,
-                                                              SymbolTable& symbols) const
+        SymbolTable& symbols) const
 {
-    std::vector<ParsedLine> lines;
-    std::istringstream input(source);
+    std::vector<ParsedLine> code_lines;
+    std::vector<ParsedLine> data_lines;
+    std::unordered_set<std::string> all_labels;
 
+    std::istringstream input(source);
     std::string raw_line;
     std::size_t line_number = 0U;
-    std::uint16_t current_address = 0U;
+    std::uint16_t current_code_address = 0U;
 
     bool waiting_operand = false;
     ParsedLine pending_instruction{};
+
+    auto register_label = [&](const std::string& label, std::uint8_t address, std::size_t line) {
+        if (label.empty())
+        {
+            return;
+        }
+
+        if (!all_labels.insert(label).second)
+        {
+            throw std::runtime_error(
+                "Line " + std::to_string(line) + ": duplicated label '" + label + "'."
+            );
+        }
+
+        symbols[label] = address;
+    };
 
     while (std::getline(input, raw_line))
     {
@@ -258,45 +270,22 @@ std::vector<PDUACompiler::ParsedLine> PDUACompiler::firstPass(const std::string&
             continue;
         }
 
-        std::string working = without_comment;
-        std::string label;
-
-        const auto colon_pos = working.find(':');
-        if (colon_pos != std::string::npos)
+        if (waiting_operand)
         {
-            label = normalizeAssemblyText(trim(working.substr(0, colon_pos)));
-
-            if (label.empty())
-            {
-                throw std::runtime_error(
-                    "Line " + std::to_string(line_number) + ": empty label."
-                );
-            }
-
-            if (symbols.find(label) != symbols.end())
+            const std::string operand_line = trim(without_comment);
+            if (operand_line.find(':') != std::string::npos)
             {
                 throw std::runtime_error(
                     "Line " + std::to_string(line_number) +
-                    ": duplicated label '" + label + "'."
+                    ": an operand line cannot define labels or variables."
                 );
             }
 
-            symbols[label] = static_cast<std::uint8_t>(current_address);
-            working = trim(working.substr(colon_pos + 1U));
+            pending_instruction.operand_text = operand_line;
+            code_lines.push_back(pending_instruction);
+            current_code_address += pending_instruction.instruction->sizeBytes();
 
-            if (working.empty())
-            {
-                continue;
-            }
-        }
-
-        if (waiting_operand)
-        {
-            pending_instruction.operand_text = working;
-            lines.push_back(pending_instruction);
-
-            current_address += pending_instruction.instruction->sizeBytes();
-            if (current_address > 0x100U)
+            if (current_code_address > 0x100U)
             {
                 throw std::runtime_error(
                     "Program exceeds PDUA 8-bit address space at line " +
@@ -309,11 +298,36 @@ std::vector<PDUACompiler::ParsedLine> PDUACompiler::firstPass(const std::string&
             continue;
         }
 
+        std::string working = without_comment;
+        std::string label;
+
+        const auto colon_pos = working.find(':');
+        if (colon_pos != std::string::npos)
+        {
+            label = normalizeAssemblyText(trim(working.substr(0, colon_pos)));
+            if (label.empty())
+            {
+                throw std::runtime_error(
+                    "Line " + std::to_string(line_number) + ": empty label."
+                );
+            }
+
+            working = trim(working.substr(colon_pos + 1U));
+        }
+
+        if (working.empty())
+        {
+            register_label(label, static_cast<std::uint8_t>(current_code_address), line_number);
+            continue;
+        }
+
         const std::string normalized = normalizeAssemblyText(working);
         const PDUAInstruction* instruction = findInstruction(normalized);
 
         if (instruction != nullptr)
         {
+            register_label(label, static_cast<std::uint8_t>(current_code_address), line_number);
+
             ParsedLine parsed;
             parsed.kind = LineKind::Instruction;
             parsed.line_number = line_number;
@@ -321,12 +335,11 @@ std::vector<PDUACompiler::ParsedLine> PDUACompiler::firstPass(const std::string&
             parsed.normalized_instruction = normalized;
             parsed.label = label;
             parsed.instruction = instruction;
-            parsed.address = static_cast<std::uint8_t>(current_address);
 
             if (instruction->operandKind() == OperandKind::None)
             {
-                lines.push_back(parsed);
-                current_address += instruction->sizeBytes();
+                code_lines.push_back(parsed);
+                current_code_address += instruction->sizeBytes();
             }
             else
             {
@@ -334,7 +347,7 @@ std::vector<PDUACompiler::ParsedLine> PDUACompiler::firstPass(const std::string&
                 pending_instruction = parsed;
             }
 
-            if (current_address > 0x100U)
+            if (current_code_address > 0x100U)
             {
                 throw std::runtime_error(
                     "Program exceeds PDUA 8-bit address space at line " +
@@ -347,27 +360,27 @@ std::vector<PDUACompiler::ParsedLine> PDUACompiler::firstPass(const std::string&
 
         if (!label.empty() && isDataDefinition(working))
         {
+            if (!all_labels.insert(label).second)
+            {
+                throw std::runtime_error(
+                    "Line " + std::to_string(line_number) + ": duplicated label '" + label + "'."
+                );
+            }
+
             ParsedLine parsed;
             parsed.kind = LineKind::Data;
             parsed.line_number = line_number;
             parsed.original_text = raw_line;
             parsed.label = label;
-            parsed.address = static_cast<std::uint8_t>(current_address);
-            parsed.data_value = parseByteValue(working, symbols, line_number);
-
-            lines.push_back(parsed);
-            ++current_address;
-
-            if (current_address > 0x100U)
-            {
-                throw std::runtime_error(
-                    "Program exceeds PDUA 8-bit address space at line " +
-                    std::to_string(line_number) + "."
-                );
-            }
-
+            parsed.operand_text = working;
+            data_lines.push_back(parsed);
             continue;
         }
+
+        throw std::runtime_error(
+            "Line " + std::to_string(line_number) +
+            ": unknown statement '" + without_comment + "'."
+        );
     }
 
     if (waiting_operand)
@@ -378,11 +391,31 @@ std::vector<PDUACompiler::ParsedLine> PDUACompiler::firstPass(const std::string&
         );
     }
 
-    return lines;
+    std::uint16_t current_data_address = current_code_address;
+    for (auto& data_line : data_lines)
+    {
+        if (current_data_address > 0xFFU)
+        {
+            throw std::runtime_error("Program exceeds PDUA 8-bit address space in data section.");
+        }
+
+        symbols[data_line.label] = static_cast<std::uint8_t>(current_data_address++);
+    }
+
+    for (auto& data_line : data_lines)
+    {
+        data_line.data_value = parseByteValue(data_line.operand_text, symbols, data_line.line_number);
+    }
+
+    std::vector<ParsedLine> ordered_lines;
+    ordered_lines.reserve(code_lines.size() + data_lines.size());
+    ordered_lines.insert(ordered_lines.end(), code_lines.begin(), code_lines.end());
+    ordered_lines.insert(ordered_lines.end(), data_lines.begin(), data_lines.end());
+    return ordered_lines;
 }
 
 std::vector<std::uint8_t> PDUACompiler::secondPass(const std::vector<ParsedLine>& lines,
-                                                   const SymbolTable& symbols) const
+        const SymbolTable& symbols) const
 {
     std::vector<std::uint8_t> output;
     output.reserve(lines.size() * 2U);

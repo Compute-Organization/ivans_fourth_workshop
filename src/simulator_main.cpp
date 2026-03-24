@@ -34,10 +34,17 @@ std::map<std::string, std::uint8_t> readSymbolFile(const std::string& path)
         unsigned long value = 0UL;
 
         if (address_token.size() > 2U &&
-            address_token[0] == '0' &&
-            (address_token[1] == 'x' || address_token[1] == 'X'))
+                address_token[0] == '0' &&
+                (address_token[1] == 'x' || address_token[1] == 'X'))
         {
             value = std::stoul(address_token, &idx, 16);
+        }
+        else if (address_token.size() > 2U &&
+                 address_token[0] == '0' &&
+                 (address_token[1] == 'b' || address_token[1] == 'B'))
+        {
+            value = std::stoul(address_token.substr(2), &idx, 2);
+            idx += 2U;
         }
         else
         {
@@ -62,7 +69,7 @@ std::vector<std::string> readDataLabelsFromSource(const std::string& source_path
     }
 
     static const std::regex data_definition_pattern(
-        R"(^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(0x[0-9A-Fa-f]+)\s*$)"
+        R"(^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(0x[0-9A-Fa-f]+|0b[01]+|[0-9]+)\s*$)"
     );
 
     std::vector<std::string> labels;
@@ -83,14 +90,14 @@ std::vector<std::string> readDataLabelsFromSource(const std::string& source_path
         if (semicolon_pos != std::string::npos)
         {
             cut_pos = (cut_pos == std::string::npos)
-                        ? semicolon_pos
-                        : std::min(cut_pos, semicolon_pos);
+                      ? semicolon_pos
+                      : std::min(cut_pos, semicolon_pos);
         }
         if (at_pos != std::string::npos)
         {
             cut_pos = (cut_pos == std::string::npos)
-                        ? at_pos
-                        : std::min(cut_pos, at_pos);
+                      ? at_pos
+                      : std::min(cut_pos, at_pos);
         }
 
         if (cut_pos != std::string::npos)
@@ -135,13 +142,13 @@ void printUsefulDataValues(const PDUASimulator& simulator,
     }
 
     std::sort(resolved.begin(), resolved.end(),
-              [](const auto& lhs, const auto& rhs) {
-                  if (lhs.second != rhs.second)
-                  {
-                      return lhs.second < rhs.second;
-                  }
-                  return lhs.first < rhs.first;
-              });
+    [](const auto& lhs, const auto& rhs) {
+        if (lhs.second != rhs.second)
+        {
+            return lhs.second < rhs.second;
+        }
+        return lhs.first < rhs.first;
+    });
 
     std::cout << "\nUseful data values\n";
 
@@ -149,7 +156,7 @@ void printUsefulDataValues(const PDUASimulator& simulator,
     {
         const auto value = simulator.readMemory(address);
 
-        std::cout << std::left << std::setw(8) << name
+        std::cout << std::left << std::setw(12) << name
                   << "= 0x"
                   << std::hex << std::uppercase
                   << std::setw(2) << std::setfill('0')

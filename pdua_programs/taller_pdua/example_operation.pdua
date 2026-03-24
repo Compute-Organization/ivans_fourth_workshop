@@ -1,0 +1,70 @@
+# In PDUA Assembly f = (g + h) - (i + j).
+
+load_G:
+    MOV ACC, CTE      @ load address of G in ACC
+    varG              @ address of varG
+    MOV DPTR, ACC     @ move address of G to DPTR
+    MOV ACC, [DPTR]   @ load G in ACC
+    MOV A, ACC        @ save G in A register
+
+load_H:
+    MOV ACC, CTE      @ load address of H in ACC
+    varH              @ address of varH
+    MOV DPTR, ACC     @ move address of H to DPTR
+    MOV ACC, [DPTR]   @ load H in ACC
+
+add_G_H:
+    ADD ACC, A        @ ACC <- G + H
+    MOV A, ACC        @ A <- G + H
+
+store_GH:
+    MOV ACC, CTE      @ load address of temp/result variable F
+    varF              @ address of varF
+    MOV DPTR, ACC     @ DPTR <- varF
+    MOV ACC, A        @ ACC <- G + H
+    MOV [DPTR], ACC   @ store G + H in varF
+
+load_I:
+    MOV ACC, CTE      @ load address of I in ACC
+    varI              @ address of varI
+    MOV DPTR, ACC     @ move address of I to DPTR
+    MOV ACC, [DPTR]   @ load I in ACC
+    MOV A, ACC        @ A <- I
+
+load_J:
+    MOV ACC, CTE      @ load address of J in ACC
+    varJ              @ address of varJ
+    MOV DPTR, ACC     @ move address of J to DPTR
+    MOV ACC, [DPTR]   @ load J in ACC
+
+add_I_J:
+    ADD ACC, A        @ ACC <- I + J
+
+compA2:
+    INV ACC           @ ACC <- one's complement of (I + J)
+    MOV A, ACC        @ A <- one's complement
+    MOV ACC, CTE      @ load literal 1 in ACC
+    0x01              @ literal 1
+    ADD ACC, A        @ ACC <- two's complement = -(I + J)
+    MOV A, ACC        @ A <- -(I + J)
+
+load_GH:
+    MOV ACC, CTE      @ load address of temp/result variable F
+    varF              @ address of varF
+    MOV DPTR, ACC     @ DPTR <- varF
+    MOV ACC, [DPTR]   @ ACC <- G + H
+
+sub_GH_IJ:
+    ADD ACC, A        @ ACC <- (G + H) - (I + J)
+
+storeRes:
+    MOV [DPTR], ACC   @ store final result in varF
+
+end_program:
+    RET
+
+varF: 0x00
+varG: 0x11
+varH: 0x05
+varI: 0x31
+varJ: 0x01

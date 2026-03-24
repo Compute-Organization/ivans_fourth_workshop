@@ -14,7 +14,8 @@ public:
         RetInstruction,
         UnknownOpcode,
         ProgramCounterOutOfRange,
-        StepLimitReached
+        StepLimitReached,
+        StackUnderflow
     };
 
     PDUASimulator();
@@ -44,7 +45,7 @@ public:
 
 private:
     static constexpr std::size_t kMemorySize = 256;
-    static constexpr std::size_t kMaxSteps = 10000;
+    static constexpr std::size_t kMaxSteps = 100000;
 
     std::uint8_t acc_;
     std::uint8_t a_;
@@ -55,10 +56,12 @@ private:
     bool carry_flag_;
 
     std::vector<std::uint8_t> memory_;
+    std::vector<std::uint8_t> call_stack_;
     std::size_t loaded_program_size_;
     StopReason stop_reason_;
     std::uint8_t last_opcode_;
 
-    void updateFlags(std::uint8_t value);
+    void updateZNFlags(std::uint8_t value);
+    void setFlags(std::uint8_t value, bool carry) noexcept;
     [[nodiscard]] bool isKnownOpcode(std::uint8_t opcode) const noexcept;
 };

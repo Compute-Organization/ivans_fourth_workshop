@@ -56,7 +56,7 @@ void PDUAFileProcessor::writeBinaryFile(const std::string& file_path,
 }
 
 std::string PDUAFileProcessor::replaceExtension(const std::string& file_path,
-                                                const std::string& new_extension)
+        const std::string& new_extension)
 {
     std::filesystem::path path(file_path);
     path.replace_extension(new_extension);

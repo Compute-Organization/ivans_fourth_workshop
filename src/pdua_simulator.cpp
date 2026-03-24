@@ -14,6 +14,7 @@ PDUASimulator::PDUASimulator()
       negative_flag_(false),
       carry_flag_(false),
       memory_(kMemorySize, 0),
+      call_stack_(),
       loaded_program_size_(0),
       stop_reason_(StopReason::None),
       last_opcode_(0)
@@ -33,6 +34,7 @@ void PDUASimulator::reset()
     last_opcode_ = 0;
 
     std::fill(memory_.begin(), memory_.end(), static_cast<std::uint8_t>(0));
+    call_stack_.clear();
     loaded_program_size_ = 0;
 }
 
@@ -54,37 +56,45 @@ void PDUASimulator::loadProgram(const std::vector<std::uint8_t>& program)
     pc_ = 0;
 }
 
-void PDUASimulator::updateFlags(std::uint8_t value)
+void PDUASimulator::updateZNFlags(std::uint8_t value)
 {
     zero_flag_ = (value == 0U);
     negative_flag_ = (value & 0x80U) != 0U;
+}
+
+void PDUASimulator::setFlags(std::uint8_t value, bool carry) noexcept
+{
+    updateZNFlags(value);
+    carry_flag_ = carry;
 }
 
 bool PDUASimulator::isKnownOpcode(std::uint8_t opcode) const noexcept
 {
     switch (opcode)
     {
-        case 0x08:
-        case 0x10:
-        case 0x18:
-        case 0x20:
-        case 0x28:
-        case 0x30:
-        case 0x38:
-        case 0x40:
-        case 0x48:
-        case 0x50:
-        case 0x58:
-        case 0x60:
-        case 0x68:
-        case 0x70:
-        case 0x78:
-        case 0x80: // XOR ACC, A
-        case 0x88: // SLL ACC, A
-        case 0x90: // SLR ACC, A
-            return true;
-        default:
-            return false;
+    case 0x08:
+    case 0x10:
+    case 0x18:
+    case 0x20:
+    case 0x28:
+    case 0x30:
+    case 0x38:
+    case 0x40:
+    case 0x48:
+    case 0x50:
+    case 0x58:
+    case 0x60:
+    case 0x68:
+    case 0x70:
+    case 0x78:
+    case 0x80: // XOR ACC, A
+    case 0x88: // SLL ACC, A
+    case 0x90: // SRL ACC, A
+    case 0x98: // OR ACC, A
+    case 0xA0: // SUB ACC, A
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -119,168 +129,188 @@ void PDUASimulator::run()
 
         switch (opcode)
         {
-            case 0x08: // MOV ACC, A
-                acc_ = a_;
-                updateFlags(acc_);
-                break;
+        case 0x08: // MOV ACC, A
+            acc_ = a_;
+            setFlags(acc_, false);
+            break;
 
-            case 0x10: // MOV A, ACC
-                a_ = acc_;
-                updateFlags(a_);
-                break;
+        case 0x10: // MOV A, ACC
+            a_ = acc_;
+            setFlags(a_, false);
+            break;
 
-            case 0x18: // MOV ACC, CTE
-                if (pc_ >= memory_.size())
-                {
-                    stop_reason_ = StopReason::ProgramCounterOutOfRange;
-                    return;
-                }
-                acc_ = memory_[pc_++];
-                updateFlags(acc_);
-                break;
-
-            case 0x20: // MOV ACC, [DPTR]
-                acc_ = memory_[dptr_];
-                updateFlags(acc_);
-                break;
-
-            case 0x28: // MOV DPTR, ACC
-                dptr_ = acc_;
-                break;
-
-            case 0x30: // MOV [DPTR], ACC
-                memory_[dptr_] = acc_;
-                break;
-
-            case 0x38: // INV ACC
-                acc_ = static_cast<std::uint8_t>(~acc_);
-                updateFlags(acc_);
-                break;
-
-            case 0x40: // AND ACC, A
-                acc_ = static_cast<std::uint8_t>(acc_ & a_);
-                updateFlags(acc_);
-                break;
-
-            case 0x48: // ADD ACC, A
+        case 0x18: // MOV ACC, CTE
+            if (pc_ >= memory_.size())
             {
-                const std::uint16_t sum =
-                    static_cast<std::uint16_t>(acc_) +
-                    static_cast<std::uint16_t>(a_);
-
-                carry_flag_ = sum > 0xFFU;
-                acc_ = static_cast<std::uint8_t>(sum & 0xFFU);
-                updateFlags(acc_);
-                break;
-            }
-
-            case 0x50: // JMP CTE
-                if (pc_ >= memory_.size())
-                {
-                    stop_reason_ = StopReason::ProgramCounterOutOfRange;
-                    return;
-                }
-                pc_ = memory_[pc_];
-                break;
-
-            case 0x58: // JZ CTE
-            {
-                if (pc_ >= memory_.size())
-                {
-                    stop_reason_ = StopReason::ProgramCounterOutOfRange;
-                    return;
-                }
-                const std::uint8_t addr = memory_[pc_++];
-                if (zero_flag_)
-                {
-                    pc_ = addr;
-                }
-                break;
-            }
-
-            case 0x60: // JN CTE
-            {
-                if (pc_ >= memory_.size())
-                {
-                    stop_reason_ = StopReason::ProgramCounterOutOfRange;
-                    return;
-                }
-                const std::uint8_t addr = memory_[pc_++];
-                if (negative_flag_)
-                {
-                    pc_ = addr;
-                }
-                break;
-            }
-
-            case 0x68: // JC CTE
-            {
-                if (pc_ >= memory_.size())
-                {
-                    stop_reason_ = StopReason::ProgramCounterOutOfRange;
-                    return;
-                }
-                const std::uint8_t addr = memory_[pc_++];
-                if (carry_flag_)
-                {
-                    pc_ = addr;
-                }
-                break;
-            }
-
-            case 0x70: // CALL DIR
-                stop_reason_ = StopReason::UnknownOpcode;
+                stop_reason_ = StopReason::ProgramCounterOutOfRange;
                 return;
+            }
+            acc_ = memory_[pc_++];
+            break;
 
-            case 0x78: // RET
+        case 0x20: // MOV ACC, [DPTR]
+            acc_ = memory_[dptr_];
+            break;
+
+        case 0x28: // MOV DPTR, ACC
+            dptr_ = acc_;
+            setFlags(dptr_, false);
+            break;
+
+        case 0x30: // MOV [DPTR], ACC
+            memory_[dptr_] = acc_;
+            setFlags(acc_, false);
+            break;
+
+        case 0x38: // INV ACC
+            acc_ = static_cast<std::uint8_t>(~acc_);
+            setFlags(acc_, false);
+            break;
+
+        case 0x40: // AND ACC, A
+            acc_ = static_cast<std::uint8_t>(acc_ & a_);
+            setFlags(acc_, false);
+            break;
+
+        case 0x48: // ADD ACC, A
+        {
+            const std::uint16_t sum =
+                static_cast<std::uint16_t>(acc_) +
+                static_cast<std::uint16_t>(a_);
+
+            acc_ = static_cast<std::uint8_t>(sum & 0xFFU);
+            setFlags(acc_, sum > 0xFFU);
+            break;
+        }
+
+        case 0x50: // JMP CTE
+            if (pc_ >= memory_.size())
+            {
+                stop_reason_ = StopReason::ProgramCounterOutOfRange;
+                return;
+            }
+            pc_ = memory_[pc_];
+            break;
+
+        case 0x58: // JZ CTE
+        {
+            if (pc_ >= memory_.size())
+            {
+                stop_reason_ = StopReason::ProgramCounterOutOfRange;
+                return;
+            }
+            const std::uint8_t addr = memory_[pc_++];
+            if (zero_flag_)
+            {
+                pc_ = addr;
+            }
+            break;
+        }
+
+        case 0x60: // JN CTE
+        {
+            if (pc_ >= memory_.size())
+            {
+                stop_reason_ = StopReason::ProgramCounterOutOfRange;
+                return;
+            }
+            const std::uint8_t addr = memory_[pc_++];
+            if (negative_flag_)
+            {
+                pc_ = addr;
+            }
+            break;
+        }
+
+        case 0x68: // JC CTE
+        {
+            if (pc_ >= memory_.size())
+            {
+                stop_reason_ = StopReason::ProgramCounterOutOfRange;
+                return;
+            }
+            const std::uint8_t addr = memory_[pc_++];
+            if (carry_flag_)
+            {
+                pc_ = addr;
+            }
+            break;
+        }
+
+        case 0x70: // CALL DIR/CTE
+        {
+            if (pc_ >= memory_.size())
+            {
+                stop_reason_ = StopReason::ProgramCounterOutOfRange;
+                return;
+            }
+            const std::uint8_t addr = memory_[pc_++];
+            call_stack_.push_back(pc_);
+            pc_ = addr;
+            break;
+        }
+
+        case 0x78: // RET
+            if (call_stack_.empty())
+            {
                 stop_reason_ = StopReason::RetInstruction;
                 return;
+            }
+            pc_ = call_stack_.back();
+            call_stack_.pop_back();
+            break;
 
-            case 0x80: // XOR ACC, A
-                acc_ = static_cast<std::uint8_t>(acc_ ^ a_);
-                carry_flag_ = false;
-                updateFlags(acc_);
-                break;
+        case 0x80: // XOR ACC, A
+            acc_ = static_cast<std::uint8_t>(acc_ ^ a_);
+            setFlags(acc_, false);
+            break;
 
-            case 0x88: // SLL ACC, A
+        case 0x88: // SLL ACC, A
+        {
+            const std::uint8_t shift_amount = static_cast<std::uint8_t>(a_ & 0x07U);
+            bool carry = false;
+
+            if (shift_amount != 0U)
             {
-                const std::uint8_t shift_amount = static_cast<std::uint8_t>(a_ & 0x07U);
-
-                if (shift_amount == 0U)
-                {
-                    carry_flag_ = false;
-                }
-                else
-                {
-                    carry_flag_ = ((acc_ >> (8U - shift_amount)) & 0x01U) != 0U;
-                    acc_ = static_cast<std::uint8_t>(acc_ << shift_amount);
-                }
-
-                updateFlags(acc_);
-                break;
+                carry = ((acc_ >> (8U - shift_amount)) & 0x01U) != 0U;
+                acc_ = static_cast<std::uint8_t>(acc_ << shift_amount);
             }
 
-            case 0x90: // SLR ACC, A
+            setFlags(acc_, carry);
+            break;
+        }
+
+        case 0x90: // SRL ACC, A
+        {
+            const std::uint8_t shift_amount = static_cast<std::uint8_t>(a_ & 0x07U);
+            bool carry = false;
+
+            if (shift_amount != 0U)
             {
-                const std::uint8_t shift_amount = static_cast<std::uint8_t>(a_ & 0x07U);
-
-                if (shift_amount == 0U)
-                {
-                    carry_flag_ = false;
-                }
-                else
-                {
-                    carry_flag_ = ((acc_ >> (shift_amount - 1U)) & 0x01U) != 0U;
-                    acc_ = static_cast<std::uint8_t>(acc_ >> shift_amount);
-                }
-
-                updateFlags(acc_);
-                break;
+                carry = ((acc_ >> (shift_amount - 1U)) & 0x01U) != 0U;
+                acc_ = static_cast<std::uint8_t>(acc_ >> shift_amount);
             }
 
-            default:
-                stop_reason_ = StopReason::UnknownOpcode;
-                return;
+            setFlags(acc_, carry);
+            break;
+        }
+
+        case 0x98: // OR ACC, A
+            acc_ = static_cast<std::uint8_t>(acc_ | a_);
+            setFlags(acc_, false);
+            break;
+
+        case 0xA0: // SUB ACC, A
+        {
+            const bool borrow = acc_ < a_;
+            acc_ = static_cast<std::uint8_t>(acc_ - a_);
+            setFlags(acc_, borrow);
+            break;
+        }
+
+        default:
+            stop_reason_ = StopReason::UnknownOpcode;
+            return;
         }
     }
 }
@@ -294,29 +324,45 @@ std::string PDUASimulator::stopReasonString() const
 {
     switch (stop_reason_)
     {
-        case StopReason::None:
-            return "No stop reason recorded.";
-        case StopReason::RetInstruction:
-            return "RET";
-        case StopReason::UnknownOpcode:
-            return "Unknown opcode (likely data section)";
-        case StopReason::ProgramCounterOutOfRange:
-            return "PC out of memory range";
-        case StopReason::StepLimitReached:
-            return "Step limit reached";
-        default:
-            return "Unknown";
+    case StopReason::None:
+        return "No stop reason recorded.";
+    case StopReason::RetInstruction:
+        return "RET";
+    case StopReason::UnknownOpcode:
+        return "Unknown opcode (likely data section)";
+    case StopReason::ProgramCounterOutOfRange:
+        return "PC out of memory range";
+    case StopReason::StepLimitReached:
+        return "Step limit reached";
+    case StopReason::StackUnderflow:
+        return "Stack underflow";
+    default:
+        return "Unknown";
     }
 }
 
-std::uint8_t PDUASimulator::acc() const noexcept { return acc_; }
-std::uint8_t PDUASimulator::a() const noexcept { return a_; }
-std::uint8_t PDUASimulator::dptr() const noexcept { return dptr_; }
-std::uint8_t PDUASimulator::pc() const noexcept { return pc_; }
+std::uint8_t PDUASimulator::acc() const noexcept {
+    return acc_;
+}
+std::uint8_t PDUASimulator::a() const noexcept {
+    return a_;
+}
+std::uint8_t PDUASimulator::dptr() const noexcept {
+    return dptr_;
+}
+std::uint8_t PDUASimulator::pc() const noexcept {
+    return pc_;
+}
 
-bool PDUASimulator::zeroFlag() const noexcept { return zero_flag_; }
-bool PDUASimulator::negativeFlag() const noexcept { return negative_flag_; }
-bool PDUASimulator::carryFlag() const noexcept { return carry_flag_; }
+bool PDUASimulator::zeroFlag() const noexcept {
+    return zero_flag_;
+}
+bool PDUASimulator::negativeFlag() const noexcept {
+    return negative_flag_;
+}
+bool PDUASimulator::carryFlag() const noexcept {
+    return carry_flag_;
+}
 
 std::uint8_t PDUASimulator::readMemory(std::uint8_t address) const noexcept
 {

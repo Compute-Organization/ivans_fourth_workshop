@@ -10,7 +10,7 @@ public:
     [[nodiscard]] static bool hasValidSourceExtension(const std::string& file_path);
     [[nodiscard]] static std::string readSourceFile(const std::string& file_path);
     [[nodiscard]] static std::string replaceExtension(const std::string& file_path,
-                                                      const std::string& new_extension);
+            const std::string& new_extension);
 
     static void writeBinaryFile(const std::string& file_path,
                                 const std::vector<std::uint8_t>& bytes);

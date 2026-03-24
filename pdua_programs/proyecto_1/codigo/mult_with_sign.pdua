@@ -1,0 +1,327 @@
+# Multiplicacion sin signo de 4 bits usando suma y desplazamiento logico.
+
+while_start:            @ Inicio del ciclo principal: en cada vuelta se evalúa Q0, se suma M sobre A si corresponde y luego se desplaza el registro lógico [C A Q].
+
+    ldCount_condition:  @ Cargar el contador en A para que la bandera Z quede alineada con la condición de salida del ciclo.
+        MOV ACC, CTE    @ ACC <- dirección de varCount.
+        varCount        @ Operando inmediato: dirección del contador.
+        MOV DPTR, ACC   @ DPTR <- dirección de varCount.
+        MOV ACC, [DPTR] @ ACC <- contenido de varCount.
+        MOV A, ACC      @ A <- count. Esta instrucción sí actualiza banderas y permite que JZ evalúe count == 0.
+
+    check_end:          @ Si count ya llegó a cero, la multiplicación terminó y el resultado final quedó repartido entre varA y varQ.
+        JZ CTE          @ Salta al final cuando Z = 1.
+        end_program     @ Etiqueta de terminación.
+
+    clear_carry:        @ Antes de revisar Q0 se limpia varC, porque si no hay suma en esta iteración el bit que entra por la izquierda de A debe ser cero.
+        MOV ACC, CTE    @ ACC <- constante 0.
+        0x00            @ Valor inmediato cero.
+        MOV A, ACC      @ A <- 0.
+        MOV ACC, CTE    @ ACC <- dirección de varC.
+        varC            @ Dirección de la variable carry temporal.
+        MOV DPTR, ACC   @ DPTR <- dirección de varC.
+        MOV ACC, A      @ ACC <- 0.
+        MOV [DPTR], ACC @ varC <- 0.
+
+    ldQ_condition:      @ Cargar Q para aislar su bit menos significativo, que define si el multiplicando debe acumularse en A.
+        MOV ACC, CTE    @ ACC <- dirección de varQ.
+        varQ            @ Dirección del multiplicador.
+        MOV DPTR, ACC   @ DPTR <- dirección de varQ.
+        MOV ACC, [DPTR] @ ACC <- Q.
+        MOV A, ACC      @ A <- Q.
+
+    ldMask1_condition:  @ Preparar la máscara 0000 0001 para inspeccionar únicamente Q0.
+        MOV ACC, CTE    @ ACC <- dirección de varMask1.
+        varMask1        @ Dirección de la máscara de un bit.
+        MOV DPTR, ACC   @ DPTR <- dirección de varMask1.
+        MOV ACC, [DPTR] @ ACC <- 0x01.
+
+    andQ0:              @ Aislar Q0. Si el resultado es cero, Z queda activa y se omite la suma.
+        AND ACC, A      @ ACC <- Q & 0x01.
+
+    check_add:          @ Decidir si se ejecuta la suma parcial A = A + M.
+        JZ CTE          @ Si Q0 = 0, no hay contribución del multiplicando en esta iteración.
+        shift_stage     @ Saltar directamente al desplazamiento lógico.
+
+    ldM_add:            @ Cargar M en A para usarlo como segundo operando de la suma parcial.
+        MOV ACC, CTE    @ ACC <- dirección de varM.
+        varM            @ Dirección del multiplicando.
+        MOV DPTR, ACC   @ DPTR <- dirección de varM.
+        MOV ACC, [DPTR] @ ACC <- M.
+        MOV A, ACC      @ A <- M.
+
+    ldA_add:            @ Recargar el acumulador alto A en ACC para formar A + M.
+        MOV ACC, CTE    @ ACC <- dirección de varA.
+        varA            @ Dirección del acumulador alto.
+        MOV DPTR, ACC   @ DPTR <- dirección de varA.
+        MOV ACC, [DPTR] @ ACC <- A actual.
+
+    addAM:              @ Suma parcial sin signo. El resultado completo se guarda temporalmente para extraer por separado el nibble bajo y el carry de 4 bits.
+        ADD ACC, A      @ ACC <- A + M.
+        MOV A, ACC      @ A <- suma completa de 8 bits.
+
+    storeSUM:           @ Guardar la suma temporal para reutilizarla tanto en el enmascaramiento del nibble bajo como en la extracción del carry.
+        MOV ACC, CTE    @ ACC <- dirección de varTMP.
+        varTMP          @ Dirección del temporal.
+        MOV DPTR, ACC   @ DPTR <- dirección de varTMP.
+        MOV ACC, A      @ ACC <- suma completa.
+        MOV [DPTR], ACC @ varTMP <- suma completa.
+
+    ldSUM_low:          @ Recuperar la suma y preparar el enmascaramiento del nibble bajo que se conserva en varA.
+        MOV ACC, CTE    @ ACC <- dirección de varTMP.
+        varTMP          @ Dirección del temporal con la suma.
+        MOV DPTR, ACC   @ DPTR <- dirección de varTMP.
+        MOV ACC, [DPTR] @ ACC <- suma completa.
+        MOV A, ACC      @ A <- suma completa.
+
+    ldMask4_low:        @ Cargar la máscara 0000 1111 para conservar únicamente los 4 bits bajos del nuevo acumulador alto.
+        MOV ACC, CTE    @ ACC <- dirección de varMask4.
+        varMask4        @ Dirección de la máscara de nibble.
+        MOV DPTR, ACC   @ DPTR <- dirección de varMask4.
+        MOV ACC, [DPTR] @ ACC <- 0x0F.
+
+    maskSUM_low:        @ Extraer el nibble bajo del resultado A + M.
+        AND ACC, A      @ ACC <- (A + M) & 0x0F.
+        MOV A, ACC      @ A <- nuevo valor de varA.
+
+    storeA_after_add:   @ Guardar el nibble bajo en varA; este será el nuevo acumulador alto antes del desplazamiento.
+        MOV ACC, CTE    @ ACC <- dirección de varA.
+        varA            @ Dirección del acumulador alto.
+        MOV DPTR, ACC   @ DPTR <- dirección de varA.
+        MOV ACC, A      @ ACC <- nibble bajo de la suma.
+        MOV [DPTR], ACC @ varA <- nibble bajo.
+
+    ldShift4_carry:     @ Preparar un desplazamiento lógico de cuatro posiciones para llevar el bit 4 de la suma hasta la posición menos significativa.
+        MOV ACC, CTE    @ ACC <- dirección de varShift4.
+        varShift4       @ Dirección del valor 4.
+        MOV DPTR, ACC   @ DPTR <- dirección de varShift4.
+        MOV ACC, [DPTR] @ ACC <- 4.
+        MOV A, ACC      @ A <- 4.
+
+    ldSUM_carry:        @ Recargar la suma completa para extraer el carry de la suma de 4 bits.
+        MOV ACC, CTE    @ ACC <- dirección de varTMP.
+        varTMP          @ Dirección del temporal con la suma.
+        MOV DPTR, ACC   @ DPTR <- dirección de varTMP.
+        MOV ACC, [DPTR] @ ACC <- suma completa.
+
+    rshSUM4:            @ Desplazar la suma cuatro posiciones a la derecha: el bit 4 ahora queda en ACC[0].
+        SRL ACC, A      @ ACC <- SUM >> 4.
+        MOV A, ACC      @ A <- suma desplazada.
+
+    ldMask1_carry:      @ Preparar nuevamente la máscara de un bit para aislar el carry de 4 bits.
+        MOV ACC, CTE    @ ACC <- dirección de varMask1.
+        varMask1        @ Dirección de la máscara 0x01.
+        MOV DPTR, ACC   @ DPTR <- dirección de varMask1.
+        MOV ACC, [DPTR] @ ACC <- 0x01.
+
+    maskCarry:          @ El bit menos significativo del valor desplazado corresponde al carry que debe entrar al registro A en el siguiente paso.
+        AND ACC, A      @ ACC <- (SUM >> 4) & 0x01.
+        MOV A, ACC      @ A <- carry de 4 bits.
+
+    storeCarry:         @ Guardar el carry temporal en varC para usarlo durante el desplazamiento del registro compuesto [C A Q].
+        MOV ACC, CTE    @ ACC <- dirección de varC.
+        varC            @ Dirección de la variable carry.
+        MOV DPTR, ACC   @ DPTR <- dirección de varC.
+        MOV ACC, A      @ ACC <- carry.
+        MOV [DPTR], ACC @ varC <- carry.
+
+shift_stage:            @ Etapa de desplazamiento lógico del registro compuesto [C A Q]. No es un desplazamiento aritmético: el bit que cae de A se preserva manualmente con máscara y luego se inserta en Q mediante OR.
+
+    ldA_oldA0:          @ Cargar A para extraer A0, el bit que sale de A y debe convertirse en el nuevo bit más significativo de Q.
+        MOV ACC, CTE    @ ACC <- dirección de varA.
+        varA            @ Dirección del acumulador alto.
+        MOV DPTR, ACC   @ DPTR <- dirección de varA.
+        MOV ACC, [DPTR] @ ACC <- A.
+        MOV A, ACC      @ A <- A.
+
+    ldMask1_oldA0:      @ Cargar máscara 0x01 para aislar exclusivamente A0.
+        MOV ACC, CTE    @ ACC <- dirección de varMask1.
+        varMask1        @ Dirección de la máscara de un bit.
+        MOV DPTR, ACC   @ DPTR <- dirección de varMask1.
+        MOV ACC, [DPTR] @ ACC <- 0x01.
+
+    andA0:              @ Extraer A0.
+        AND ACC, A      @ ACC <- A & 0x01.
+        MOV A, ACC      @ A <- A0 antiguo.
+
+    storeOldA0:         @ Guardar A0 antiguo para reinsertarlo en Q después del desplazamiento.
+        MOV ACC, CTE    @ ACC <- dirección de varOldA0.
+        varOldA0        @ Dirección del temporal oldA0.
+        MOV DPTR, ACC   @ DPTR <- dirección de varOldA0.
+        MOV ACC, A      @ ACC <- A0 antiguo.
+        MOV [DPTR], ACC @ varOldA0 <- A0 antiguo.
+
+    ldShift1_Q:         @ Preparar desplazamiento lógico de una posición para Q.
+        MOV ACC, CTE    @ ACC <- dirección de varShift1.
+        varShift1       @ Dirección del valor 1.
+        MOV DPTR, ACC   @ DPTR <- dirección de varShift1.
+        MOV ACC, [DPTR] @ ACC <- 1.
+        MOV A, ACC      @ A <- 1.
+
+    ldQ_shift:          @ Cargar Q para obtener su versión desplazada a la derecha.
+        MOV ACC, CTE    @ ACC <- dirección de varQ.
+        varQ            @ Dirección del multiplicador / parte baja del producto.
+        MOV DPTR, ACC   @ DPTR <- dirección de varQ.
+        MOV ACC, [DPTR] @ ACC <- Q.
+
+    rshQ:               @ Desplazar lógicamente Q a la derecha; el espacio vacante en el MSB será llenado luego con oldA0 mediante OR.
+        SRL ACC, A      @ ACC <- Q >> 1.
+        MOV A, ACC      @ A <- Q desplazado.
+
+    storeTMP_Q:         @ Guardar temporalmente Q >> 1 para combinarlo después con oldA0 << 3.
+        MOV ACC, CTE    @ ACC <- dirección de varTMP.
+        varTMP          @ Dirección del temporal.
+        MOV DPTR, ACC   @ DPTR <- dirección de varTMP.
+        MOV ACC, A      @ ACC <- Q desplazado.
+        MOV [DPTR], ACC @ varTMP <- Q >> 1.
+
+    ldShift3_A0:        @ Preparar el desplazamiento de tres posiciones necesario para mover oldA0 hasta el bit más significativo del nibble de Q.
+        MOV ACC, CTE    @ ACC <- dirección de varShift3.
+        varShift3       @ Dirección del valor 3.
+        MOV DPTR, ACC   @ DPTR <- dirección de varShift3.
+        MOV ACC, [DPTR] @ ACC <- 3.
+        MOV A, ACC      @ A <- 3.
+
+    ldOldA0_shift:      @ Recuperar oldA0 para ubicarlo en la posición Q3.
+        MOV ACC, CTE    @ ACC <- dirección de varOldA0.
+        varOldA0        @ Dirección del temporal oldA0.
+        MOV DPTR, ACC   @ DPTR <- dirección de varOldA0.
+        MOV ACC, [DPTR] @ ACC <- oldA0.
+
+    lshOldA0:           @ Desplazar oldA0 hasta la posición del MSB de Q. Este es el bit que no se debe perder durante el shift lógico.
+        SLL ACC, A      @ ACC <- oldA0 << 3.
+        MOV A, ACC      @ A <- oldA0 reposicionado.
+
+    ldTMP_Q_or:         @ Recuperar Q >> 1 para recomponer el nuevo Q con una OR bit a bit.
+        MOV ACC, CTE    @ ACC <- dirección de varTMP.
+        varTMP          @ Dirección del temporal.
+        MOV DPTR, ACC   @ DPTR <- dirección de varTMP.
+        MOV ACC, [DPTR] @ ACC <- Q >> 1.
+
+    orQ_new:            @ Combinar ambas partes: la porción desplazada de Q y el bit proveniente de A. Aquí OR sí es indispensable para reconstruir correctamente el registro lógico.
+        OR ACC, A       @ ACC <- (Q >> 1) | (oldA0 << 3).
+        MOV A, ACC      @ A <- nuevo Q.
+
+    storeQ_new:         @ Guardar el nuevo valor de Q.
+        MOV ACC, CTE    @ ACC <- dirección de varQ.
+        varQ            @ Dirección de Q.
+        MOV DPTR, ACC   @ DPTR <- dirección de varQ.
+        MOV ACC, A      @ ACC <- nuevo Q.
+        MOV [DPTR], ACC @ varQ <- nuevo Q.
+
+    ldShift1_A:         @ Preparar desplazamiento lógico de una posición para A.
+        MOV ACC, CTE    @ ACC <- dirección de varShift1.
+        varShift1       @ Dirección del valor 1.
+        MOV DPTR, ACC   @ DPTR <- dirección de varShift1.
+        MOV ACC, [DPTR] @ ACC <- 1.
+        MOV A, ACC      @ A <- 1.
+
+    ldA_shift:          @ Recargar A para obtener A >> 1.
+        MOV ACC, CTE    @ ACC <- dirección de varA.
+        varA            @ Dirección del acumulador alto.
+        MOV DPTR, ACC   @ DPTR <- dirección de varA.
+        MOV ACC, [DPTR] @ ACC <- A.
+
+    rshA:               @ Desplazar lógicamente A a la derecha; el nuevo bit más significativo se construye manualmente con varC << 3.
+        SRL ACC, A      @ ACC <- A >> 1.
+        MOV A, ACC      @ A <- A desplazado.
+
+    storeTMP_A:         @ Guardar A >> 1 mientras se calcula C << 3.
+        MOV ACC, CTE    @ ACC <- dirección de varTMP.
+        varTMP          @ Dirección del temporal.
+        MOV DPTR, ACC   @ DPTR <- dirección de varTMP.
+        MOV ACC, A      @ ACC <- A desplazado.
+        MOV [DPTR], ACC @ varTMP <- A >> 1.
+
+    ldShift3_C:         @ Preparar el desplazamiento de tres posiciones para insertar varC en el bit más significativo de A.
+        MOV ACC, CTE    @ ACC <- dirección de varShift3.
+        varShift3       @ Dirección del valor 3.
+        MOV DPTR, ACC   @ DPTR <- dirección de varShift3.
+        MOV ACC, [DPTR] @ ACC <- 3.
+        MOV A, ACC      @ A <- 3.
+
+    ldC_shift:          @ Recuperar el carry temporal que debe entrar al registro A durante el desplazamiento compuesto.
+        MOV ACC, CTE    @ ACC <- dirección de varC.
+        varC            @ Dirección de varC.
+        MOV DPTR, ACC   @ DPTR <- dirección de varC.
+        MOV ACC, [DPTR] @ ACC <- C.
+
+    lshC:               @ Posicionar C en el MSB del nibble alto.
+        SLL ACC, A      @ ACC <- C << 3.
+        MOV A, ACC      @ A <- C reposicionado.
+
+    ldTMP_A_or:         @ Recuperar A >> 1 para recomponer el nuevo A.
+        MOV ACC, CTE    @ ACC <- dirección de varTMP.
+        varTMP          @ Dirección del temporal.
+        MOV DPTR, ACC   @ DPTR <- dirección de varTMP.
+        MOV ACC, [DPTR] @ ACC <- A >> 1.
+
+    orA_new:            @ Combinar la parte desplazada de A con el carry reposicionado. Esto implementa el desplazamiento del registro [C A Q] sin perder el bit de carry.
+        OR ACC, A       @ ACC <- (A >> 1) | (C << 3).
+        MOV A, ACC      @ A <- nuevo A.
+
+    storeA_new:         @ Guardar el nuevo valor de A.
+        MOV ACC, CTE    @ ACC <- dirección de varA.
+        varA            @ Dirección de A.
+        MOV DPTR, ACC   @ DPTR <- dirección de varA.
+        MOV ACC, A      @ ACC <- nuevo A.
+        MOV [DPTR], ACC @ varA <- nuevo A.
+
+    ld1_dec:            @ Cargar la constante 1 para decrementar el contador de iteraciones.
+        MOV ACC, CTE    @ ACC <- dirección de varOne.
+        varOne          @ Dirección de la constante uno.
+        MOV DPTR, ACC   @ DPTR <- dirección de varOne.
+        MOV ACC, [DPTR] @ ACC <- 1.
+        MOV A, ACC      @ A <- 1.
+
+    ldCount_dec:        @ Recargar count en ACC.
+        MOV ACC, CTE    @ ACC <- dirección de varCount.
+        varCount        @ Dirección del contador.
+        MOV DPTR, ACC   @ DPTR <- dirección de varCount.
+        MOV ACC, [DPTR] @ ACC <- count.
+
+    decCount:           @ Restar una iteración al contador.
+        SUB ACC, A      @ ACC <- count - 1.
+        MOV A, ACC      @ A <- count actualizado.
+
+    storeCount:         @ Guardar el nuevo valor de count.
+        MOV ACC, CTE    @ ACC <- dirección de varCount.
+        varCount        @ Dirección del contador.
+        MOV DPTR, ACC   @ DPTR <- dirección de varCount.
+        MOV ACC, A      @ ACC <- count actualizado.
+        MOV [DPTR], ACC @ varCount <- count - 1.
+
+    continueL:          @ Volver al inicio del algoritmo para procesar el siguiente bit del multiplicador.
+        JMP CTE         @ Salto incondicional al comienzo del ciclo.
+        while_start     @ Etiqueta de destino.
+
+end_program:            @ Fin del programa. Antes de retornar, se cargan explícitamente los registros de salida para que el simulador muestre ACC = varA y A = varQ.
+
+    ldFinalQ_in_A:      @ Cargar la parte baja del producto final en el registro auxiliar A. Así, al terminar, A contiene Q (los cuatro bits menos significativos).
+        MOV ACC, CTE    @ ACC <- dirección de varQ.
+        varQ            @ Dirección del nibble bajo del resultado.
+        MOV DPTR, ACC   @ DPTR <- dirección de varQ.
+        MOV ACC, [DPTR] @ ACC <- varQ.
+        MOV A, ACC      @ A <- varQ.
+
+    ldFinalA_in_ACC:    @ Recargar la parte alta del producto final en ACC sin sobrescribir A. Así, al terminar, ACC contiene varA (los cuatro bits más significativos).
+        MOV ACC, CTE    @ ACC <- dirección de varA.
+        varA            @ Dirección del nibble alto del resultado.
+        MOV DPTR, ACC   @ DPTR <- dirección de varA.
+        MOV ACC, [DPTR] @ ACC <- varA.
+
+    RET                 @ Finalizar ejecución dejando ACC = varA y A = varQ
+
+varM: 0x0D              @ Multiplicando sin signo = 13.
+varQ: 0x0B              @ Multiplicador sin signo = 11.
+varA: 0x00              @ Acumulador alto del producto parcial.
+varC: 0x00              @ Carry temporal de 4 bits usado en el desplazamiento compuesto.
+varCount: 0x04          @ Número de iteraciones para operandos de 4 bits.
+varOldA0: 0x00          @ Bit menos significativo antiguo de A.
+varTMP: 0x00            @ Temporal reutilizable para suma completa y valores parciales desplazados.
+varMask1: 0x01          @ Máscara para aislar un solo bit.
+varMask4: 0x0F          @ Máscara para conservar únicamente el nibble bajo.
+varShift1: 0x01         @ Desplazamiento de un bit.
+varShift3: 0x03         @ Desplazamiento de tres bits para insertar señales en el MSB del nibble.
+varShift4: 0x04         @ Desplazamiento de cuatro bits para extraer el carry de la suma de 4 bits.
+varOne: 0x01            @ Constante uno para decrementar el contador.

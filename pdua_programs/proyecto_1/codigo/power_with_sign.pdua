@@ -1,0 +1,798 @@
+# Potencia con signo de 4 bits: x ^ y.
+# - varX: base con signo en complemento a 2 de 4 bits.
+# - varY: exponente sin signo de 4 bits.
+# - El resultado final se deja en 8 bits:
+#       varA = nibble alto
+#       varQ = nibble bajo
+# - Al terminar:
+#       ACC = varA
+#       A   = varQ
+# - Esta implementación NO usa shift aritmético. Cuando se necesita mover bits
+#   entre nibbles, se hace con máscaras, shifts lógicos y OR.
+# - Si el resultado excede 8 bits, solo se conservan los 8 bits bajos.
+
+init_resultado:         @ Inicializar el acumulado de la potencia en 1. Como el resultado es de 8 bits, se representa como varResHi = 0 y varResLo = 1.
+    MOV ACC, CTE        @ Cargar la constante 0 en ACC para el nibble alto inicial.
+    0x00
+    MOV A, ACC          @ A <- 0.
+    MOV ACC, CTE        @ Cargar la direccion del nibble alto del acumulado.
+    varResHi
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varResHi = 0.
+
+    MOV ACC, CTE        @ Cargar la constante 1 en ACC para el nibble bajo inicial.
+    0x01
+    MOV A, ACC          @ A <- 1.
+    MOV ACC, CTE        @ Cargar la direccion del nibble bajo del acumulado.
+    varResLo
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varResLo = 1.
+
+init_signos:            @ Limpiar las banderas de signo de base y signo final del resultado.
+    MOV ACC, CTE
+    0x00
+    MOV A, ACC
+    MOV ACC, CTE
+    varSignX
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varSignX = 0.
+
+    MOV ACC, CTE
+    varSignRes
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varSignRes = 0.
+
+detectar_signo_base:    @ Revisar si la base varX es negativa. Para eso se enmascara el bit 3 con 0x08. El salto JZ se hace inmediatamente despues del AND para no perder la bandera Z.
+    MOV ACC, CTE        @ Cargar la direccion de varX.
+    varX
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varX.
+    MOV A, ACC          @ A <- varX.
+
+    MOV ACC, CTE        @ Cargar la mascara 1000 para aislar el bit de signo.
+    varMask8
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x08.
+
+    AND ACC, A          @ ACC <- varX & 0x08. Si da 0, la base es no negativa.
+    JZ CTE
+    base_no_negativa
+
+base_negativa:          @ Si la base es negativa, guardar signX = 1 y calcular su magnitud en 4 bits: |X| = (~X + 1) & 0x0F.
+    MOV ACC, CTE        @ Guardar signX = 1.
+    0x01
+    MOV A, ACC
+    MOV ACC, CTE
+    varSignX
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC
+
+    MOV ACC, CTE        @ Cargar varX para aplicar complemento a 1.
+    varX
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varX.
+
+    INV ACC             @ ACC <- ~varX.
+    MOV A, ACC          @ Guardar temporalmente el complemento.
+
+    MOV ACC, CTE        @ Cargar la constante 1 para completar el complemento a 2.
+    0x01
+    ADD ACC, A          @ ACC <- (~varX) + 1.
+    MOV A, ACC          @ A <- magnitud provisional.
+
+    MOV ACC, CTE        @ Aplicar mascara 0x0F para quedarse solo con 4 bits.
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x0F.
+    AND ACC, A          @ ACC <- |varX| en 4 bits.
+    MOV A, ACC
+
+    MOV ACC, CTE        @ Guardar la magnitud de la base en varBaseMag.
+    varBaseMag
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC
+
+    JMP CTE
+    calcular_signo_final
+
+base_no_negativa:       @ Si la base no es negativa, signX = 0 y la magnitud simplemente es varX & 0x0F.
+    MOV ACC, CTE
+    0x00
+    MOV A, ACC
+    MOV ACC, CTE
+    varSignX
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varSignX = 0.
+
+    MOV ACC, CTE        @ Cargar varX.
+    varX
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    MOV A, ACC
+
+    MOV ACC, CTE        @ Aplicar mascara 0x0F por limpieza.
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    AND ACC, A          @ ACC <- varX & 0x0F.
+    MOV A, ACC
+
+    MOV ACC, CTE        @ Guardar la magnitud de la base.
+    varBaseMag
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC
+
+calcular_signo_final:   @ El signo final de x^y solo es negativo si la base era negativa y el exponente es impar. Por eso se calcula: signRes = signX AND (y & 1).
+    MOV ACC, CTE        @ Cargar varY para obtener el bit menos significativo del exponente.
+    varY
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varY.
+    MOV A, ACC          @ A <- varY.
+
+    MOV ACC, CTE        @ Cargar mascara 0x01.
+    varMask1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    AND ACC, A          @ ACC <- varY & 0x01.
+    MOV A, ACC          @ A <- bit de paridad del exponente.
+
+    MOV ACC, CTE        @ Cargar signX.
+    varSignX
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- signX.
+
+    AND ACC, A          @ ACC <- signX & (varY & 1).
+    MOV A, ACC
+
+    MOV ACC, CTE        @ Guardar signRes.
+    varSignRes
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC
+
+init_exp_count:         @ Guardar en varExpCount el numero de multiplicaciones que faltan por hacer. Se usa y & 0x0F para asegurar un exponente de 4 bits.
+    MOV ACC, CTE
+    varY
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varY.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x0F.
+
+    AND ACC, A          @ ACC <- varY & 0x0F.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varExpCount
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varExpCount = exponente.
+
+power_loop:             @ Bucle principal de la potencia. En cada iteracion: resultado = resultado * |base|, usando multiplicacion sin signo de 8 bits por 4 bits.
+    MOV ACC, CTE        @ Cargar expCount.
+    varExpCount
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- expCount.
+    MOV A, ACC          @ MOV A, ACC actualiza flags y permite que JZ revise si expCount ya llego a cero.
+    JZ CTE
+    aplicar_signo_final
+
+init_prod:              @ Inicializar el acumulador del producto parcial en 0.
+    MOV ACC, CTE
+    0x00
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varProdHi
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varProdHi = 0.
+
+    MOV ACC, CTE
+    varProdLo
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varProdLo = 0.
+
+init_multicando:        @ Copiar el resultado acumulado actual al multiplicando de 8 bits. Este multiplicando se ira desplazando a la izquierda en cada paso.
+    MOV ACC, CTE
+    varResHi
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    MOV A, ACC
+    MOV ACC, CTE
+    varMulHi
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varMulHi = varResHi.
+
+    MOV ACC, CTE
+    varResLo
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    MOV A, ACC
+    MOV ACC, CTE
+    varMulLo
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varMulLo = varResLo.
+
+init_multiplier:        @ Cargar la magnitud de la base en el multiplicador de 4 bits.
+    MOV ACC, CTE
+    varBaseMag
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    MOV A, ACC
+    MOV ACC, CTE
+    varMulQ
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varMulQ = |base|.
+
+init_mul_count:         @ La multiplicacion interna recorre 4 bits del multiplicador.
+    MOV ACC, CTE
+    0x04
+    MOV A, ACC
+    MOV ACC, CTE
+    varMulCount
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varMulCount = 4.
+
+mult_loop:              @ Multiplicacion sin signo: si Q0 = 1, sumar el multiplicando al producto parcial; luego desplazar multiplicador a la derecha y multiplicando a la izquierda.
+    MOV ACC, CTE
+    varMulCount
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulCount.
+    MOV A, ACC          @ MOV A, ACC actualiza flags para poder evaluar el fin del bucle.
+    JZ CTE
+    mult_done
+
+check_q0:               @ Revisar el bit menos significativo del multiplicador. El JZ se hace justo despues del AND.
+    MOV ACC, CTE
+    varMulQ
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulQ.
+    MOV A, ACC          @ A <- varMulQ.
+
+    MOV ACC, CTE
+    varMask1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x01.
+
+    AND ACC, A          @ ACC <- varMulQ & 0x01.
+    JZ CTE
+    skip_add_stage
+
+add_prod_low:           @ Sumar los nibbles bajos: prodLo + mulLo. Se conserva el nibble bajo y se extrae el acarreo de nibble con shift y mascara.
+    MOV ACC, CTE
+    varMulLo
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulLo.
+    MOV A, ACC          @ A <- varMulLo.
+
+    MOV ACC, CTE
+    varProdLo
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varProdLo.
+
+    ADD ACC, A          @ ACC <- varProdLo + varMulLo.
+    MOV A, ACC          @ A <- suma cruda del nibble bajo.
+
+    MOV ACC, CTE
+    varTmp0
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar la suma cruda para reutilizarla.
+
+    MOV ACC, CTE
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x0F.
+    MOV A, ACC          @ A <- 0x0F.
+
+    MOV ACC, CTE
+    varTmp0
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- suma cruda.
+    AND ACC, A          @ ACC <- nibble bajo de la suma.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varProdLo
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar el nuevo nibble bajo del producto.
+
+extract_low_carry:      @ Extraer el acarreo del nibble bajo: carryLow = (rawLow >> 4) & 0x01.
+    MOV ACC, CTE
+    varShift4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 4.
+    MOV A, ACC          @ A <- cantidad de desplazamiento.
+
+    MOV ACC, CTE
+    varTmp0
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- suma cruda del nibble bajo.
+    SRL ACC, A          @ ACC <- rawLow >> 4.
+    MOV A, ACC          @ A <- resultado desplazado.
+
+    MOV ACC, CTE
+    varMask1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x01.
+    AND ACC, A          @ ACC <- carryLow.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varCarry
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar carryLow.
+
+add_prod_high:          @ Sumar los nibbles altos: prodHi + mulHi + carryLow. Se conserva solo el nibble alto final.
+    MOV ACC, CTE
+    varMulHi
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulHi.
+    MOV A, ACC          @ A <- varMulHi.
+
+    MOV ACC, CTE
+    varProdHi
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varProdHi.
+    ADD ACC, A          @ ACC <- prodHi + mulHi.
+    MOV A, ACC          @ A <- suma parcial alta.
+
+    MOV ACC, CTE
+    varTmp1
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar suma parcial alta.
+
+    MOV ACC, CTE
+    varCarry
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- carryLow.
+    MOV A, ACC          @ A <- carryLow.
+
+    MOV ACC, CTE
+    varTmp1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- suma parcial alta.
+    ADD ACC, A          @ ACC <- prodHi + mulHi + carryLow.
+    MOV A, ACC          @ A <- suma alta final.
+
+    MOV ACC, CTE
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x0F.
+    AND ACC, A          @ ACC <- nibble alto final.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varProdHi
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar nuevo nibble alto del producto.
+
+skip_add_stage:         @ Si Q0 era 0, se omite la suma y se pasa directamente a los desplazamientos.
+
+shift_multiplier_right: @ Desplazar el multiplicador de 4 bits una posicion a la derecha. Aqui solo se usa shift logico, porque el multiplicador es una magnitud positiva.
+    MOV ACC, CTE
+    varShift1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 1.
+    MOV A, ACC          @ A <- 1.
+
+    MOV ACC, CTE
+    varMulQ
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulQ.
+    SRL ACC, A          @ ACC <- varMulQ >> 1.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varMulQ
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar multiplicador desplazado.
+
+extract_bit3_mulLo:     @ Para desplazar a la izquierda el multiplicando de 8 bits, primero se extrae el bit 3 del nibble bajo. Ese bit luego se inserta en el nibble alto usando OR.
+    MOV ACC, CTE
+    varMulLo
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulLo.
+    MOV A, ACC          @ A <- varMulLo.
+
+    MOV ACC, CTE
+    varMask8
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x08.
+    AND ACC, A          @ ACC <- varMulLo & 0x08.
+    MOV A, ACC          @ A <- bit3 del nibble bajo, aun en posicion 3.
+
+    MOV ACC, CTE
+    varTmpBit
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar temporalmente ese bit.
+
+normalize_bit3_mulLo:   @ Convertir el bit extraido a una contribucion de 0 o 1 para poder insertarlo en el nibble alto tras el shift.
+    MOV ACC, CTE
+    varShift3
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 3.
+    MOV A, ACC          @ A <- 3.
+
+    MOV ACC, CTE
+    varTmpBit
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- bit3 del nibble bajo (0x00 u 0x08).
+    SRL ACC, A          @ ACC <- 0 o 1.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varTmpBit
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar el bit normalizado.
+
+shift_mulLo_left:       @ Desplazar a la izquierda el nibble bajo del multiplicando. Solo se conserva el nibble bajo con mascara.
+    MOV ACC, CTE
+    varShift1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 1.
+    MOV A, ACC          @ A <- 1.
+
+    MOV ACC, CTE
+    varMulLo
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulLo.
+    SLL ACC, A          @ ACC <- varMulLo << 1.
+    MOV A, ACC          @ A <- desplazamiento crudo.
+
+    MOV ACC, CTE
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x0F.
+    AND ACC, A          @ ACC <- (varMulLo << 1) & 0x0F.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varMulLo
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar nuevo nibble bajo del multiplicando.
+
+shift_mulHi_left:       @ Desplazar a la izquierda el nibble alto y luego insertar el bit proveniente del nibble bajo usando OR.
+    MOV ACC, CTE
+    varShift1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 1.
+    MOV A, ACC          @ A <- 1.
+
+    MOV ACC, CTE
+    varMulHi
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulHi.
+    SLL ACC, A          @ ACC <- varMulHi << 1.
+    MOV A, ACC          @ A <- desplazamiento crudo del nibble alto.
+
+    MOV ACC, CTE
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x0F.
+    AND ACC, A          @ ACC <- (varMulHi << 1) & 0x0F.
+    MOV A, ACC          @ A <- nibble alto ya desplazado.
+
+    MOV ACC, CTE
+    varTmp1
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar el nibble alto desplazado antes de insertar el bit que llego desde abajo.
+
+    MOV ACC, CTE
+    varTmpBit
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- bit normalizado (0 o 1).
+    MOV A, ACC          @ A <- bit a insertar.
+
+    MOV ACC, CTE
+    varTmp1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- nibble alto desplazado.
+    OR ACC, A           @ ACC <- ((mulHi << 1) & 0x0F) | bit_desde_mulLo.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varMulHi
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar nuevo nibble alto del multiplicando.
+
+dec_mul_count:          @ Decrementar el contador de la multiplicacion interna.
+    MOV ACC, CTE
+    varOne
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 1.
+    MOV A, ACC          @ A <- 1.
+
+    MOV ACC, CTE
+    varMulCount
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varMulCount.
+    SUB ACC, A          @ ACC <- varMulCount - 1.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varMulCount
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar contador actualizado.
+
+    JMP CTE
+    mult_loop
+
+mult_done:              @ Cuando termina la multiplicacion interna, el producto pasa a ser el nuevo resultado acumulado de la potencia.
+    MOV ACC, CTE
+    varProdHi
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    MOV A, ACC
+    MOV ACC, CTE
+    varResHi
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varResHi = varProdHi.
+
+    MOV ACC, CTE
+    varProdLo
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    MOV A, ACC
+    MOV ACC, CTE
+    varResLo
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varResLo = varProdLo.
+
+dec_exp_count:          @ Reducir el exponente pendiente en una unidad y volver al bucle principal.
+    MOV ACC, CTE
+    varOne
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 1.
+    MOV A, ACC          @ A <- 1.
+
+    MOV ACC, CTE
+    varExpCount
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- varExpCount.
+    SUB ACC, A          @ ACC <- varExpCount - 1.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varExpCount
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar expCount actualizado.
+
+    JMP CTE
+    power_loop
+
+aplicar_signo_final:    @ Si signRes = 0, el resultado se copia tal cual. Si signRes = 1, se convierte la magnitud acumulada a complemento a 2 de 8 bits usando INV, suma de 1, mascara y acarreo entre nibbles.
+    MOV ACC, CTE
+    varSignRes
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- signRes.
+    MOV A, ACC          @ MOV A, ACC actualiza flags para que JZ use directamente el valor de signRes.
+    JZ CTE
+    resultado_positivo
+
+resultado_negativo:     @ Convertir el resultado positivo acumulado en un numero negativo de 8 bits, nibble por nibble.
+    MOV ACC, CTE
+    varResLo
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- resLo.
+    INV ACC             @ ACC <- ~resLo.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varTmp0
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar ~resLo.
+
+    MOV ACC, CTE
+    varResHi
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- resHi.
+    INV ACC             @ ACC <- ~resHi.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varTmp1
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar ~resHi.
+
+add_one_to_low:         @ Sumar 1 al nibble bajo invertido.
+    MOV ACC, CTE
+    0x01
+    MOV A, ACC          @ A <- 1.
+
+    MOV ACC, CTE
+    varTmp0
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- ~resLo.
+    ADD ACC, A          @ ACC <- ~resLo + 1.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varTmp0
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar suma cruda del nibble bajo.
+
+    MOV ACC, CTE
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x0F.
+    MOV A, ACC          @ A <- 0x0F.
+
+    MOV ACC, CTE
+    varTmp0
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    AND ACC, A          @ ACC <- nibble bajo final.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varQ
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar nibble bajo final negativo.
+
+extract_carry_neg:      @ Extraer el acarreo del nibble bajo para sumarlo al nibble alto invertido.
+    MOV ACC, CTE
+    varShift4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 4.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varTmp0
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- suma cruda de ~resLo + 1.
+    SRL ACC, A          @ ACC <- raw >> 4.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varMask1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    AND ACC, A          @ ACC <- carry de nibble.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varCarry
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar carry.
+
+add_carry_to_high:      @ Sumar el acarreo al nibble alto invertido y conservar solo 4 bits.
+    MOV ACC, CTE
+    varCarry
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- carry.
+    MOV A, ACC          @ A <- carry.
+
+    MOV ACC, CTE
+    varTmp1
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- ~resHi.
+    ADD ACC, A          @ ACC <- ~resHi + carry.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varMask4
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ ACC <- 0x0F.
+    AND ACC, A          @ ACC <- nibble alto final.
+    MOV A, ACC
+
+    MOV ACC, CTE
+    varA
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ Guardar nibble alto final negativo.
+
+    JMP CTE
+    end_program
+
+resultado_positivo:     @ Si el signo final no es negativo, copiar directamente el resultado acumulado a varA y varQ.
+    MOV ACC, CTE
+    varResHi
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    MOV A, ACC
+    MOV ACC, CTE
+    varA
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varA = varResHi.
+
+    MOV ACC, CTE
+    varResLo
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]
+    MOV A, ACC
+    MOV ACC, CTE
+    varQ
+    MOV DPTR, ACC
+    MOV ACC, A
+    MOV [DPTR], ACC     @ varQ = varResLo.
+
+end_program:            @ Fin del programa. Antes de retornar, se cargan explícitamente los registros de salida para que el simulador muestre ACC = varA y A = varQ.
+
+    ldFinalQ_in_A:      @ Cargar la parte baja del resultado final en el registro auxiliar A. Así, al terminar, A contiene Q (los cuatro bits menos significativos).
+        MOV ACC, CTE    @ ACC <- dirección de varQ.
+        varQ            @ Dirección del nibble bajo del resultado.
+        MOV DPTR, ACC   @ DPTR <- dirección de varQ.
+        MOV ACC, [DPTR] @ ACC <- varQ.
+        MOV A, ACC      @ A <- varQ.
+
+    ldFinalA_in_ACC:    @ Recargar la parte alta del resultado final en ACC sin sobrescribir A. Así, al terminar, ACC contiene varA (los cuatro bits más significativos).
+        MOV ACC, CTE    @ ACC <- dirección de varA.
+        varA            @ Dirección del nibble alto del resultado.
+        MOV DPTR, ACC   @ DPTR <- dirección de varA.
+        MOV ACC, [DPTR] @ ACC <- varA.
+
+    RET                 @ Finalizar ejecución dejando ACC = varA y A = varQ.
+
+varX:        0x02       @ Base con signo en 4 bits. Ejemplo: 0x02 = +2, 0x0E = -2, 0x0D = -3.
+varY:        0x03       @ Exponente sin signo en 4 bits. Ejemplo: 0x03 = 3.
+
+varA:        0x00       @ Nibble alto del resultado final.
+varQ:        0x00       @ Nibble bajo del resultado final.
+
+varBaseMag:  0x00       @ Magnitud positiva de la base.
+varSignX:    0x00       @ 1 si la base original era negativa; 0 si no.
+varSignRes:  0x00       @ 1 si el resultado final debe ser negativo; 0 si no.
+varExpCount: 0x00       @ Contador externo de la potencia.
+
+varResHi:    0x00       @ Nibble alto del acumulado actual del resultado.
+varResLo:    0x00       @ Nibble bajo del acumulado actual del resultado.
+
+varProdHi:   0x00       @ Nibble alto del producto parcial dentro de cada multiplicación.
+varProdLo:   0x00       @ Nibble bajo del producto parcial dentro de cada multiplicación.
+
+varMulHi:    0x00       @ Nibble alto del multiplicando de 8 bits que se desplaza a la izquierda.
+varMulLo:    0x00       @ Nibble bajo del multiplicando de 8 bits que se desplaza a la izquierda.
+varMulQ:     0x00       @ Multiplicador de 4 bits para la multiplicación interna.
+varMulCount: 0x00       @ Contador de 4 iteraciones para recorrer los bits de varMulQ.
+
+varCarry:    0x00       @ Acarreo entre nibbles.
+varTmp0:     0x00       @ Temporal general 0.
+varTmp1:     0x00       @ Temporal general 1.
+varTmpBit:   0x00       @ Temporal para transportar bits entre nibbles.
+
+varOne:      0x01       @ Constante 1.
+varMask1:    0x01       @ Máscara para aislar el bit menos significativo.
+varMask4:    0x0F       @ Máscara para conservar 4 bits.
+varMask8:    0x08       @ Máscara para aislar el bit 3 de un nibble.
+varShift1:   0x01       @ Desplazamiento de 1 bit.
+varShift3:   0x03       @ Desplazamiento de 3 bits.
+varShift4:   0x04       @ Desplazamiento de 4 bits.

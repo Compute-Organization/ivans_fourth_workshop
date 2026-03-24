@@ -201,12 +201,16 @@ const std::vector<PDUAInstruction>& basicInstructionSet()
         PDUAInstruction{std::byte{0x60}, std::byte{0xF8}, "JN CTE",          2, false, OperandKind::Address8},
         PDUAInstruction{std::byte{0x68}, std::byte{0xF8}, "JC CTE",          2, false, OperandKind::Address8},
         PDUAInstruction{std::byte{0x70}, std::byte{0xF8}, "CALL DIR",        2, false, OperandKind::Address8},
+        PDUAInstruction{std::byte{0x70}, std::byte{0xF8}, "CALL CTE",        2, false, OperandKind::Address8},
         PDUAInstruction{std::byte{0x78}, std::byte{0xF8}, "RET",             1, false, OperandKind::None},
 
-        // New pedagogical instructions in the available range 10000xxx-11111xxx
+        // Instrucciones pedagógicas agregadas en el rango disponible 1xxxx---
         PDUAInstruction{std::byte{0x80}, std::byte{0xF8}, "XOR ACC, A",      1, true,  OperandKind::None},
         PDUAInstruction{std::byte{0x88}, std::byte{0xF8}, "SLL ACC, A",      1, true,  OperandKind::None},
+        PDUAInstruction{std::byte{0x90}, std::byte{0xF8}, "SRL ACC, A",      1, true,  OperandKind::None},
         PDUAInstruction{std::byte{0x90}, std::byte{0xF8}, "SLR ACC, A",      1, true,  OperandKind::None},
+        PDUAInstruction{std::byte{0x98}, std::byte{0xF8}, "OR ACC, A",       1, true,  OperandKind::None},
+        PDUAInstruction{std::byte{0xA0}, std::byte{0xF8}, "SUB ACC, A",      1, true,  OperandKind::None},
     };
 
     return instructions;
