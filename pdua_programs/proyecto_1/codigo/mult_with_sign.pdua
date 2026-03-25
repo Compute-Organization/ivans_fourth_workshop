@@ -1,7 +1,7 @@
 # Multiplicacion con signo de 4 bits usando el algoritmo de Booth.
 
 L0:                     @ Inicio del ciclo principal de Booth. En cada iteracion se evalua el par (Q0, Q_1) para decidir si se suma M, se resta M o no se hace nada.
-
+                        @ Inicializar A reg, count, Q-1 = 0
     MOV ACC, CTE        @ Cargar direccion de varCount.
     CNT
     MOV DPTR, ACC
@@ -54,17 +54,18 @@ ADDS:                   @ Caso 01: A = A + M. Se conserva solo el nibble bajo pa
     MOV ACC, [DPTR]     @ ACC <- A.
     ADD ACC, A          @ ACC <- A + M.
     MOV A, ACC          @ A <- suma cruda.
+                        
+    MOV [DPTR] ACC     @ Falta Guardar a AREG -> Recomendacion profe (obligatorio).              
+    @MOV ACC, CTE
+    @0x0F
+    @AND ACC, A          @ ACC <- (A + M) & 0x0F.
+    @MOV A, ACC          @ A <- nuevo A.
 
-    MOV ACC, CTE
-    0x0F
-    AND ACC, A          @ ACC <- (A + M) & 0x0F.
-    MOV A, ACC          @ A <- nuevo A.
-
-    MOV ACC, CTE
-    AREG
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ varA <- nuevo A.
+    @MOV ACC, CTE
+    @AREG
+    @MOV DPTR, ACC
+    @MOV ACC, A
+    @MOV [DPTR], ACC     @ varA <- nuevo A.
 
     JMP CTE
     SHIFT
@@ -81,36 +82,24 @@ SUBS:                   @ Caso 10: A = A - M. La semantica correcta es SUB ACC, 
     MOV DPTR, ACC
     MOV ACC, [DPTR]     @ ACC <- A.
     SUB ACC, A          @ ACC <- A - M.
-    MOV A, ACC          @ A <- resta cruda.
+    
+    @ MOV A, ACC          @ A <- resta cruda.
 
-    MOV ACC, CTE
-    0x0F
-    AND ACC, A          @ ACC <- (A - M) & 0x0F.
-    MOV A, ACC          @ A <- nuevo A.
+    MOV [DPTR] ACC     @ Falta Guardar a AREG -> Recomendacion profe (obligatorio).
+    @MOV ACC, CTE
+    @0x0F
+    @AND ACC, A          @ ACC <- (A - M) & 0x0F.
+    @ MOV A, ACC          @ A <- nuevo A.
 
-    MOV ACC, CTE
-    AREG
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ varA <- nuevo A.
+    @MOV ACC, CTE
+    @AREG
+    @MOV DPTR, ACC
+    @MOV ACC, A
+    @ MOV [DPTR], ACC     @ varA <- nuevo A.
 
 SHIFT:                  @ Etapa de desplazamiento del registro compuesto [A Q Q_1]. Como no hay shift aritmetico, A se reconstruye manualmente como (A >> 1) | signA.
 
-    MOV ACC, CTE        @ Cargar A para extraer oldA0.
-    AREG
-    MOV DPTR, ACC
-    MOV ACC, [DPTR]
-    MOV A, ACC
-    MOV ACC, CTE
-    0x01
-    AND ACC, A          @ ACC <- A & 0x01 = oldA0.
-    MOV A, ACC
-    MOV ACC, CTE
-    O
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ O <- oldA0.
-
+    @ Nuevo cambio:
     MOV ACC, CTE        @ Cargar Q para extraer oldQ0.
     Q
     MOV DPTR, ACC
@@ -126,99 +115,156 @@ SHIFT:                  @ Etapa de desplazamiento del registro compuesto [A Q Q_
     MOV ACC, A
     MOV [DPTR], ACC     @ Q_1 <- oldQ0.
 
-    MOV ACC, CTE        @ Preparar shift de 1 para Q.
-    0x01
-    MOV A, ACC
-    MOV ACC, CTE
-    Q
-    MOV DPTR, ACC
-    MOV ACC, [DPTR]     @ ACC <- Q.
-    SRL ACC, A          @ ACC <- Q >> 1.
-    MOV A, ACC
-    MOV ACC, CTE
-    T
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ T <- Q >> 1.
 
-    MOV ACC, CTE        @ Preparar shift de 3 para mover oldA0 hasta Q3.
-    0x03
-    MOV A, ACC
-    MOV ACC, CTE
-    O
-    MOV DPTR, ACC
-    MOV ACC, [DPTR]     @ ACC <- oldA0.
-    SLL ACC, A          @ ACC <- oldA0 << 3.
-    MOV A, ACC          @ A <- oldA0 reubicado.
-
-    MOV ACC, CTE
-    T
-    MOV DPTR, ACC
-    MOV ACC, [DPTR]     @ ACC <- Q >> 1.
-    OR ACC, A           @ ACC <- (Q >> 1) | (oldA0 << 3).
-    MOV A, ACC
-    MOV ACC, CTE
-    Q
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ Q <- nuevo Q.
-
-    MOV ACC, CTE        @ Extraer el bit de signo de A con mascara 0x08.
+    MOV ACC, CTE        @ Cargar A para extraer oldA0.
     AREG
     MOV DPTR, ACC
     MOV ACC, [DPTR]
     MOV A, ACC
     MOV ACC, CTE
-    0x08
-    AND ACC, A          @ ACC <- A & 0x08 = signA.
-    MOV A, ACC
-    MOV ACC, CTE
-    S
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ S <- signA.
-
-    MOV ACC, CTE        @ Preparar shift de 1 para A.
     0x01
-    MOV A, ACC
-    MOV ACC, CTE
-    AREG
-    MOV DPTR, ACC
-    MOV ACC, [DPTR]     @ ACC <- A.
-    SRL ACC, A          @ ACC <- A >> 1.
-    MOV A, ACC
-    MOV ACC, CTE
-    T
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ T <- A >> 1.
+    AND ACC, A          @ ACC <- A & 0x01 = oldA0.
 
-    MOV ACC, CTE
-    S
-    MOV DPTR, ACC
-    MOV ACC, [DPTR]     @ ACC <- signA.
-    MOV A, ACC          @ A <- signA.
+    JZ CTE
+    shiftQ
 
-    MOV ACC, CTE
-    T
-    MOV DPTR, ACC
-    MOV ACC, [DPTR]     @ ACC <- A >> 1.
-    OR ACC, A           @ ACC <- (A >> 1) | signA.
-    MOV A, ACC
-    MOV ACC, CTE
-    0x0F
-    AND ACC, A          @ ACC <- nuevo A en 4 bits.
-    MOV A, ACC
 
-    MOV ACC, CTE
-    AREG
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ AREG <- nuevo A.
+    @ --------------------------------------------------------------------------------------------
+    shiftQ_1MSB:
+        MOV ACC, CTE
+        Q
+        MOV DPTR, ACC
+        MOV ACC, [DPTR]     @ ACC <- Q.
+        SRL ACC            @ ACC <- Q >> 1.
+        MOV A, ACC
+        MOV ACC, CTE
+        0x80
+        OR ACC, A
+        MOV [DPTR], ACC
+        JMP CTE
+        shiftA
 
+    @ MOV A, ACC
+    @ MOV ACC, CTE
+    @ O
+    @ MOV DPTR, ACC
+    @ MOV ACC, A
+    @ MOV [DPTR], ACC     @ O <- oldA0.
+
+    
+    @ MOV ACC, CTE        @ Preparar shift de 1 para Q.
+    @ 0x01
+    @ MOV A, ACC
+    @ JMP CTE
+    @ shiftA
+
+    shiftQ:
+        MOV ACC, CTE
+        Q
+        MOV DPTR, ACC
+        MOV ACC, [DPTR]     @ ACC <- Q.
+        SRL ACC            @ ACC <- Q >> 1.
+
+        MOV [DPTR], ACC
+        @ Devuelvalo a memoria
+        
+    @     MOV A, ACC
+    @     MOV ACC, CTE
+    @     T
+    @     MOV DPTR, ACC
+    @     MOV ACC, A
+    @     MOV [DPTR], ACC     @ T <- Q >> 1.
+
+    @ MOV ACC, CTE        @ Preparar shift de 3 para mover oldA0 hasta Q3.
+    @ 0x03
+    @ MOV A, ACC
+    @ MOV ACC, CTE
+    @ O
+    @ MOV DPTR, ACC
+    @ MOV ACC, [DPTR]     @ ACC <- oldA0.
+    @ SLL ACC, A          @ ACC <- oldA0 << 3.
+    @ MOV A, ACC          @ A <- oldA0 reubicado.
+
+    @ MOV ACC, CTE
+    @ T
+    @ MOV DPTR, ACC
+    @ MOV ACC, [DPTR]     @ ACC <- Q >> 1.
+    @ OR ACC, A           @ ACC <- (Q >> 1) | (oldA0 << 3).
+    @ MOV A, ACC
+    @ MOV ACC, CTE
+    @ Q
+    @ MOV DPTR, ACC
+    @ MOV ACC, A
+    @ MOV [DPTR], ACC     @ Q <- nuevo Q.
+    
+    @ shiftA:
+    @ MOV ACC, CTE        @ Extraer el bit de signo de A con mascara 0x08.
+    @ AREG
+    @ MOV DPTR, ACC
+    @ MOV ACC, [DPTR]
+    @ MOV A, ACC
+    @ MOV ACC, CTE
+    @ 0x08
+    @ AND ACC, A          @ ACC <- A & 0x08 = signA.
+    @ MOV A, ACC
+    @ MOV ACC, CTE
+    @ S
+    @ MOV DPTR, ACC
+    @ MOV ACC, A
+    @ MOV [DPTR], ACC     @ S <- signA.
+
+    @ MOV ACC, CTE        @ Preparar shift de 1 para A.
+    @ 0x01
+    @ MOV A, ACC
+    @ MOV ACC, CTE
+    @ AREG
+    @ MOV DPTR, ACC
+    @ MOV ACC, [DPTR]     @ ACC <- A.
+    @ SRL ACC, A          @ ACC <- A >> 1.
+    @ MOV A, ACC
+    @ MOV ACC, CTE
+    @ T
+    @ MOV DPTR, ACC
+    @ MOV ACC, A
+    @ MOV [DPTR], ACC     @ T <- A >> 1.
+
+    @ MOV ACC, CTE
+    @ S
+    @ MOV DPTR, ACC
+    @ MOV ACC, [DPTR]     @ ACC <- signA.
+    @ MOV A, ACC          @ A <- signA.
+
+    @ MOV ACC, CTE
+    @ T
+    @ MOV DPTR, ACC
+    @ MOV ACC, [DPTR]     @ ACC <- A >> 1.
+    @ OR ACC, A           @ ACC <- (A >> 1) | signA.
+    @ MOV A, ACC
+    @ MOV ACC, CTE
+    @ 0x0F
+    @ AND ACC, A          @ ACC <- nuevo A en 4 bits.
+    @ MOV A, ACC
+
+    @
+
+    shiftA:
     MOV ACC, CTE        @ Preparar la constante 1 para decrementar count.
-    0x01
+    0x80
     MOV A, ACC
+
+    MOV ACC, CTE
+    AREG
+    MOV DPTR, ACC
+    MOV ACC, [DPTR]     @ AREG <- nuevo A.
+`   
+    
+
+    @ Mascara de Areg con el 80 
+    @ Desplazar Areg 
+    @ OR de Areg deplazado con el resultado de la mascara
+    @ Enviar a memoria a Areg
+
+    decCount:
     MOV ACC, CTE
     CNT
     MOV DPTR, ACC
@@ -226,13 +272,21 @@ SHIFT:                  @ Etapa de desplazamiento del registro compuesto [A Q Q_
     SUB ACC, A          @ ACC <- count - 1.
     MOV A, ACC
     MOV ACC, CTE
-    CNT
-    MOV DPTR, ACC
-    MOV ACC, A
-    MOV [DPTR], ACC     @ CNT <- count - 1.
+
+    @ Decrementar ACC
+    @ Actualizar CNT en memoria
+
+    @ En ves de volver otra ves JZ al inicio.
+    @ El decremeto es mas eficiente porque no tengo que volver a preguntar, dentro del procesador.
+    @ CNT
+    @ MOV DPTR, ACC
+    @ MOV ACC, A
+    @ MOV [DPTR], ACC     @ CNT <- count - 1.
 
     JMP CTE             @ Volver al inicio del ciclo principal.
     L0
+
+
 
 END:                    @ Cargar explícitamente la salida para que el simulador muestre ACC = varA y A = varQ.
     MOV ACC, CTE
@@ -246,7 +300,7 @@ END:                    @ Cargar explícitamente la salida para que el simulador
     MOV DPTR, ACC
     MOV ACC, [DPTR]     @ ACC <- varA.
 
-    RET
+    HALT
 
 M:    0x03              @ Multiplicando con signo = +3.
 Q:    0x0E              @ Multiplicador con signo = -2.

@@ -1,0 +1,96 @@
+{
+  "ROS2.distro": "jazzy",
+  "python.autoComplete.extraPaths": [
+    "/opt/ros/jazzy/lib/python3.12/site-packages"
+  ],
+  "python.analysis.extraPaths": ["/opt/ros/jazzy/lib/python3.12/site-packages"],
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "clangd.arguments": [
+    "--background-index",
+    "--compile-commands-dir=build",
+    "--clang-tidy"
+  ],
+  "files.associations": {
+    "*.pdua": "pdua"
+  },
+  "editor.semanticHighlighting.enabled": false,
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": "markup.heading.pdua",
+        "settings": {
+          "foreground": "#FFD166",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "comment.line.at-sign.pdua",
+        "settings": {
+          "foreground": "#00E676"
+        }
+      },
+      {
+        "scope": "keyword.instruction.basic.pdua",
+        "settings": {
+          "foreground": "#FF00FF",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "keyword.instruction.extended.pdua",
+        "settings": {
+          "foreground": "#FF6B35",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "variable.language.constant.cte.pdua",
+        "settings": {
+          "foreground": "#00E5FF",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "variable.pointer.dptr.pdua",
+        "settings": {
+          "foreground": "#FF00FF",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "variable.register.general.pdua",
+        "settings": {
+          "foreground": "#7AA2FF"
+        }
+      },
+      {
+        "scope": "entity.name.label.pdua",
+        "settings": {
+          "foreground": "#FFD60A",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "variable.symbol.pdua",
+        "settings": {
+          "foreground": "#E6FF57",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "constant.numeric.hex.pdua",
+        "settings": {
+          "foreground": "#FF8C42",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "constant.numeric.decimal.pdua",
+        "settings": {
+          "foreground": "#FF8C42",
+          "fontStyle": "bold"
+        }
+      }
+    ]
+  }
+}
